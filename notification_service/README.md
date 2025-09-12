@@ -1,4 +1,0 @@
-# NotificationService
-
-**TODO: Add description**
-
