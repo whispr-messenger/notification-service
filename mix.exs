@@ -43,8 +43,8 @@ defmodule WhisprNotification.MixProject do
       {:req, "~> 0.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:ex_doc, ">= 0.30.0", only: :dev, runtime: false},
-      {:earmark_parser, "~> 1.4.42", only: [:dev, :test], runtime: false, override: true}
+      # {:ex_doc, ">= 0.30.0", only: :dev, runtime: false},
+      # {:earmark_parser, "~> 1.4.42", only: [:dev, :test], runtime: false, override: true}
     ]
   end
 
