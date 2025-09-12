@@ -49,6 +49,10 @@ jobs:
       #     key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}-build
       - name: Install dependencies
         run: mix deps.get
+      - name: Clean earmark_parser
+        run: mix deps.clean earmark_parser --all
+      - name: Update earmark_parser
+        run: mix deps.update earmark_parser
       - name: Compile
         run: mix compile --warnings-as-errors
       - name: Check Formatting
