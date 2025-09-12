@@ -2,7 +2,6 @@
 # They are provided by a third-party and are governed by
 # separate terms of service, privacy policy, and support
 # documentation.
-
 name: Elixir CI
 
 on:
@@ -12,25 +11,8 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-    name: Build and test
-    runs-on: ubuntu-latest 
-
-    env:
-      # postgres services config
-      POSTGRES_USER: postgres 
-      POSTGRES_PASSWORD: postgres 
-      # phoenix services config
-      MIX_ENV: test
-      PGHOST: postgres
-      PGUSER: postgres
-      PGPASSWORD: postgres
-      PGDATABASE: time_manager_test
-      phoenix_container: notifications_service_test
-      
   test:
     runs-on: ubuntu-latest
-
     services:
       db:
         image: postgres:15-alpine
@@ -44,43 +26,32 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     strategy:
       matrix:
         elixir: ['1.18.0']
         otp: ['28.0']
-        
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup Elixir and Erlang/OTP
         uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ matrix.elixir }}
           otp-version: ${{ matrix.otp }}
-
       - name: Restore deps cache
         uses: actions/cache@v4
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
-          restore-keys: ${{ runner.os }}-mix-
-
       - name: Restore build cache
         uses: actions/cache@v4
         with:
           path: _build
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}-build
-          restore-keys: ${{ runner.os }}-mix-
-
       - name: Install dependencies
         run: mix deps.get
-
       - name: Compile
         run: mix compile --warnings-as-errors
-
       - name: Check Formatting
         run: mix format --check-formatted
-
       - name: Run Tests
         run: mix test
