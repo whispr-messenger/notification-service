@@ -52,9 +52,9 @@ jobs:
       - name: Install dependencies
         run: mix deps.get
       - name: Update earmark_parser
-        run: mix deps.update earmark_parser
+        run: mix deps.compile earmark_parser --force
       - name: Compile
-        run: mix deps.compile --warnings-as-errors
+        run: mix compile --warnings-as-errors
       - name: Check Formatting
         run: mix format --check-formatted
       - name: Run Tests
