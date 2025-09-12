@@ -44,8 +44,7 @@ defmodule WhisprNotification.MixProject do
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.38.4", only: :dev, runtime: false},
-      {:earmark_parser, ">= 1.4.44"}
-
+      {:earmark_parser, ">= 1.4.42", only: [:dev, :test], runtime: false}
     ]
   end
 
