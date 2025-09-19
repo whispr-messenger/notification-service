@@ -37,17 +37,22 @@ jobs:
             malekbh/whispr:${{ env.SERVICE_NAME }}-latest
             malekbh/whispr:${{ env.SERVICE_NAME }}-${{ env.BUILD_DATE }}-${{ env.SHORT_SHA }}
 
-      # Installe Docker Compose & Just (pour lancer les tests via docker-compose)
-      - name: Install Docker Compose & Just
+      # Run container from the built image
+      - name: Run container for tests
         run: |
-          sudo apt-get update
-          sudo apt-get install -y docker-compose
-          curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
+          docker run -d --name whispr_notification \
+            -e MIX_ENV=test \
+            malekbh/whispr:${{ env.SERVICE_NAME }}-latest \
+            tail -f /dev/null
 
-      # Exécute les tests dans le container Phoenix
-      - name: Run Tests in container
+      # Install Hex & Deps inside container
+      - name: Install Elixir Deps
         run: |
-          docker exec whispr_notification \
-            mix compile --warnings-as-errors
-          docker exec whispr_notification \
-            mix test
+          docker exec whispr_notification mix local.hex --force
+          docker exec whispr_notification mix deps.get
+
+      # Compile & Run tests
+      - name: Run Tests
+        run: |
+          docker exec whispr_notification mix compile --warnings-as-errors
+          docker exec whispr_notification mix test
