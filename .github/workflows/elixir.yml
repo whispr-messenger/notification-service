@@ -44,11 +44,6 @@ jobs:
           sudo apt-get install -y docker-compose
           curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
-      # Lance docker-compose avec l'image buildée
-      - name: Compose up test
-        run: |
-          just compose-up-test
-
       # Exécute les tests dans le container Phoenix
       - name: Run Tests in container
         run: |
