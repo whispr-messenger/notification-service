@@ -1,7 +1,3 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
 name: Elixir Docker CI
 
 on:
@@ -17,27 +13,43 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Installe Docker Compose et Just si non présents
+      # Login Docker Hub
+      - uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Variables de build
+      - name: Set build variables
+        run: |
+          echo "SERVICE_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+          echo "BUILD_DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      # Build & Push image Phoenix vers Docker Hub
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            malekbh/whispr:${{ env.SERVICE_NAME }}-latest
+            malekbh/whispr:${{ env.SERVICE_NAME }}-${{ env.BUILD_DATE }}-${{ env.SHORT_SHA }}
+
+      # Installe Docker Compose & Just (pour lancer les tests via docker-compose)
       - name: Install Docker Compose & Just
         run: |
           sudo apt-get update
           sudo apt-get install -y docker-compose
           curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
-      # Lance l'environnement de test Docker Compose (Phoenix + DB + Redis si nécessaire)
+      # Lance docker-compose avec l'image buildée
       - name: Compose up test
         run: |
           just compose-up-test
 
-      # Installe Hex et les dépendances dans le container Phoenix
-      - name: Install Elixir Deps in container
-        run: |
-          docker exec whispr_notification \
-            mix local.hex --force
-          docker exec whispr_notification \
-            mix deps.get
-
-      # Compile et teste complètement dans le container
+      # Exécute les tests dans le container Phoenix
       - name: Run Tests in container
         run: |
           docker exec whispr_notification \
