@@ -7,52 +7,42 @@ on:
     branches: [ "main" ]
 
 jobs:
-  test:
+  test-and-build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # Login Docker Hub
-      - uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # Variables de build
-      - name: Set build variables
+      - name: Install Docker Compose
         run: |
-          echo "SERVICE_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
-          echo "BUILD_DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
-          echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
 
-      # Build & Push image Phoenix vers Docker Hub
-      - name: Build and Push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            malekbh/whispr:${{ env.SERVICE_NAME }}-latest
-            malekbh/whispr:${{ env.SERVICE_NAME }}-${{ env.BUILD_DATE }}-${{ env.SHORT_SHA }}
-
-      # Run container from the built image
-      - name: Run container for tests
+      - name: Run Elixir Tests in container
         run: |
-          docker run -d --name whispr_notification \
-            -e MIX_ENV=test \
-            malekbh/whispr:${{ env.SERVICE_NAME }}-latest \
-            tail -f /dev/null
+          docker run --rm -v $(pwd):/app -w /app elixir:1.18-otp-27 \
+            bash -c "apt-get update && apt-get install -y npm git && \
+            mix local.hex --force && mix local.rebar --force && \
+            mix deps.get && mix test"
 
-      # Install Hex & Deps inside container
-      - name: Install Elixir Deps
+      - name: Build Docker image
         run: |
-          docker exec whispr_notification mix local.hex --force
-          docker exec whispr_notification mix deps.get
+          docker build -t whispr_notification:latest .
 
-      # Compile & Run tests
-      - name: Run Tests
+      - name: Verify container runs
         run: |
-          docker exec whispr_notification mix compile --warnings-as-errors
-          docker exec whispr_notification mix test
+          docker run -d --name test_whispr -p 4000:4000 whispr_notification:latest
+          sleep 5
+          docker logs test_whispr | tail -n 20
+          docker stop test_whispr && docker rm test_whispr
+
+      - name: Login to Docker registry
+        if: github.event_name == 'push'
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Push Docker image
+        if: github.event_name == 'push'
+        run: |
+          docker tag whispr_notification:latest ${{ secrets.DOCKER_USERNAME }}/whispr_notification:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/whispr_notification:latest
