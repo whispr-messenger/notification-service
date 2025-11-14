@@ -25,7 +25,9 @@ jobs:
           curl -fsSL https://just.systems/install.sh | bash -s -- --to /usr/local/bin
 
       # Lance l'environnement de test Docker Compose (Phoenix + DB + Redis si nécessaire)
-      # Wait test
+      # - name: Compose up test
+      #   run: |
+      #     just compose-up-test
 
       # Installe Hex et les dépendances dans le container Phoenix
       - name: Install Elixir Deps in container
