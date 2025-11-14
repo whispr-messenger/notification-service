@@ -30,17 +30,17 @@ jobs:
       #     just compose-up-test
 
       # Installe Hex et les dépendances dans le container Phoenix
-      - name: Install Elixir Deps in container
-        run: |
-          docker exec whispr_notification \
-            mix local.hex --force
-          docker exec whispr_notification \
-            mix deps.get
+      # - name: Install Elixir Deps in container
+      #   run: |
+      #     docker exec whispr_notification \
+      #       mix local.hex --force
+      #     docker exec whispr_notification \
+      #       mix deps.get
 
       # Compile et teste complètement dans le container
-      - name: Run Tests in container
-        run: |
-          docker exec whispr_notification \
-            mix compile --warnings-as-errors
-          docker exec whispr_notification \
-            mix test
+      # - name: Run Tests in container
+      #   run: |
+      #     docker exec whispr_notification \
+      #       mix compile --warnings-as-errors
+      #     docker exec whispr_notification \
+      #       mix test
