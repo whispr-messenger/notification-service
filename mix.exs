@@ -15,7 +15,7 @@ defmodule WhisprNotification.MixProject do
 
   def application do
     [
-      mod: {WhisprNotification.Application, []},
+      mod: {WhisprNotifications.Application, []},
       extra_applications: [:logger, :runtime_tools, :grpcbox]
     ]
   end
