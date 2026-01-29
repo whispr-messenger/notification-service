@@ -27,6 +27,7 @@ defmodule WhisprNotification.MixProject do
     [
       {:phoenix, "~> 1.8.0"},
       {:phoenix_ecto, "~> 4.5"},
+      {:phoenix_swagger, "~> 0.8"},
       {:ecto_sql, "~> 3.13"},
       {:postgrex, ">= 0.0.0"},
       {:redix, "~> 1.2"},
