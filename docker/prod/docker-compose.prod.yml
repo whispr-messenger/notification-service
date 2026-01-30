@@ -1,0 +1,133 @@
+# Docker Compose for WhisprNotification Production Environment
+version: '3.8'
+
+services:
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    environment:
+      # Database (idéalement DB managée en prod)
+      DATABASE_URL: ${DATABASE_URL}
+
+      # Redis (idéalement Redis managé)
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_DB: ${REDIS_DB:-0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # Phoenix / HTTP
+      PHX_HOST: 0.0.0.0
+      PHX_PORT: 4000
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+
+      # gRPC
+      GRPC_PORT: 50052
+
+      # Environnement
+      MIX_ENV: prod
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # Clés de notifications (à adapter à ton implémentation réelle)
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID}
+      FCM_CREDENTIALS_JSON: ${FCM_CREDENTIALS_JSON}
+      APNS_TEAM_ID: ${APNS_TEAM_ID}
+      APNS_KEY_ID: ${APNS_KEY_ID}
+      APNS_AUTH_KEY_PATH: ${APNS_AUTH_KEY_PATH}
+      APNS_ENV: ${APNS_ENV:-production}
+
+      # Observabilité
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+      METRICS_PORT: ${METRICS_PORT:-9090}
+      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT}
+
+      # Déploiement / clustering BEAM
+      RELEASE_NAME: ${RELEASE_NAME:-whispr-notification}
+      RELEASE_VERSION: ${RELEASE_VERSION:-latest}
+      NODE_NAME: ${NODE_NAME:-notification@${HOSTNAME}}
+      ERLANG_COOKIE: ${ERLANG_COOKIE}
+
+      # Monitoring
+      HEALTH_CHECK_PATH: ${HEALTH_CHECK_PATH:-/api/v1/health}
+      METRICS_PATH: ${METRICS_PATH:-/metrics}
+    ports:
+      - "${HTTP_PORT:-4000}:4000"
+      - "${GRPC_PORT:-50052}:50052"
+      - "${METRICS_PORT:-9090}:9090"
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+    deploy:
+      replicas: ${REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-1.0}'
+          memory: ${MEMORY_LIMIT:-1G}
+        reservations:
+          cpus: '${CPU_RESERVATION:-0.5}'
+          memory: ${MEMORY_RESERVATION:-512M}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - whispr_network
+      - traefik_network
+    labels:
+      # Traefik enable
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_network"
+
+      # HTTP router
+      - "traefik.http.routers.notification-http.rule=Host(`notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.http.routers.notification-http.entrypoints=web"
+      - "traefik.http.routers.notification-http.middlewares=redirect-to-https"
+
+      # HTTPS router
+      - "traefik.http.routers.notification-https.rule=Host(`notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.http.routers.notification-https.entrypoints=websecure"
+      - "traefik.http.routers.notification-https.tls=true"
+      - "traefik.http.routers.notification-https.tls.certresolver=le"
+
+      # HTTP service (Phoenix)
+      - "traefik.http.services.notification.loadbalancer.server.port=4000"
+
+      # Middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+
+      # gRPC router (TCP)
+      - "traefik.tcp.routers.notification-grpc.rule=HostSNI(`grpc-notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.tcp.routers.notification-grpc.entrypoints=grpc"
+      - "traefik.tcp.routers.notification-grpc.tls=true"
+      - "traefik.tcp.routers.notification-grpc.tls.certresolver=le"
+      - "traefik.tcp.services.notification-grpc.loadbalancer.server.port=50052"
+
+volumes:
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  whispr_network:
+    driver: overlay
+    attachable: true
+  traefik_network:
+    external: true
