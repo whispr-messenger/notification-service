@@ -1,39 +1,93 @@
-# Étape 1 : Build Elixir/Phoenix + assets
-FROM elixir:1.19
+# =============================================================================
+# Whispr Notification Service - Dockerfile
+# Multi-stage build for production-ready Elixir application
+# =============================================================================
 
-RUN apt-get update && apt-get install -y build-essential npm git
+# -----------------------------------------------------------------------------
+# STAGE 1: Build
+# -----------------------------------------------------------------------------
+FROM elixir:1.19-alpine AS builder
 
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    git \
+    curl
+
+# Set environment variables
+ENV MIX_ENV=prod \
+    LANG=C.UTF-8
+
+# Create app directory
 WORKDIR /app
 
-RUN mix local.hex --force && mix local.rebar --force
+# Install hex + rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force
 
+# Copy dependency files first (for caching)
 COPY mix.exs mix.lock ./
 COPY config config
 
-ENV MIX_ENV=prod
+# Install dependencies
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    mix deps.get --only prod && \
+    mix deps.compile
 
-RUN mix deps.get
-RUN mix deps.compile
+# Copy application code
+COPY lib lib
+COPY priv priv
+
+# Compile the application
 RUN mix compile
 
+# Build release (nom par défaut = app: :whispr_notification)
+RUN mix release
 
+# -----------------------------------------------------------------------------
+# STAGE 2: Runtime
+# -----------------------------------------------------------------------------
+FROM alpine:3.18 AS runtime
 
-RUN MIX_ENV=prod mix release
+# Install runtime dependencies
+RUN apk add --no-cache \
+    libstdc++ \
+    openssl \
+    ncurses-libs \
+    libgcc \
+    curl \
+    bash
 
-# Étape 2 : Runner minimal
-FROM debian:bullseye-slim
+# Create non-root user for security
+RUN addgroup -g 1000 whispr && \
+    adduser -u 1000 -G whispr -s /bin/sh -D whispr
 
-RUN apt-get update && apt-get install -y libstdc++6 openssl libncurses6 locales && rm -rf /var/lib/apt/lists/*
+# Set environment variables
+ENV MIX_ENV=prod \
+    LANG=C.UTF-8 \
+    PORT=4002 \
+    GRPC_PORT=4003
 
 WORKDIR /app
 
-COPY --from=build /app/_build/prod/rel/whispr_notification ./
+# Copy release from builder
+COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notification ./
 
-ENV LANG=en_US.UTF-8 \
-    MIX_ENV=prod \
-    REPLACE_OS_VARS=true \
-    HOME=/app
+USER whispr
 
-EXPOSE 4000
+# Expose ports (HTTP + gRPC) - adapte si besoin
+EXPOSE 4002 4003
 
+# Health check - adapte l’URL à ce que ton service expose
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
+
+# OCI Labels
+LABEL org.opencontainers.image.title="Whispr Notification Service" \
+      org.opencontainers.image.description="Notification service for Whispr Messenger" \
+      org.opencontainers.image.vendor="Whispr" \
+      org.opencontainers.image.version="0.1.0"
+
+# Start the application
 CMD ["bin/whispr_notification", "start"]
