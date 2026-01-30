@@ -100,16 +100,18 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/prod/Dockerfile
-          push: false
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
+
 
       - name: Scan image for vulnerabilities
         uses: aquasecurity/trivy-action@master

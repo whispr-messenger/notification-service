@@ -7,6 +7,8 @@
 # STAGE 1: Build
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
+ARG SECRET_KEY_BASE
+ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
 
 # Install build dependencies
 RUN apk add --no-cache \
