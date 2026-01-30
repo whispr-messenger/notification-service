@@ -81,11 +81,11 @@ services:
           cpus: '${CPU_RESERVATION:-0.5}'
           memory: ${MEMORY_RESERVATION:-512M}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/api/v1/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/api/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 40s
     networks:
       - whispr_network
       - traefik_network
