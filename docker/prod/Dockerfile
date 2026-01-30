@@ -37,7 +37,6 @@ RUN --mount=type=cache,target=/root/.hex \
 
 # Copy application code
 COPY lib lib
-COPY priv priv
 
 # Compile the application
 RUN mix compile
