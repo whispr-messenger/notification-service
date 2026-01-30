@@ -78,18 +78,13 @@ defmodule WhisprNotification.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       # {:ex_doc, ">= 0.30.0", only: :dev, runtime: false},
 
-      # (optionnel) Swagger si tu veux comme messaging :
-      # {:phoenix_swagger, "~> 0.8"},
-      # et n’oublie pas la config si tu l’actives :
-      # config :phoenix_swagger, json_library: Jason
+      {:phoenix_swagger, "~> 0.8"},
     ]
   end
 
   defp aliases do
     [
       setup: ["deps.get"],
-      # Si tu ajoutes un Repo:
-      # "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       test: ["test"],
       precommit: ["compile --warning-as-errors", "deps.unlock --unused", "format", "test"]
     ]
