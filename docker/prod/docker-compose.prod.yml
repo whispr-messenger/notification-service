@@ -8,11 +8,9 @@ services:
       dockerfile: docker/prod/Dockerfile
       target: runtime
 
-    # Charge toutes les variables depuis le .env prod
     env_file:
       - ./env/notification.prod.env
 
-    # Seulement ce que tu veux forcer ici
     environment:
       PHX_HOST: ${PHX_HOST:-0.0.0.0}
       MIX_ENV: ${MIX_ENV:-prod}
@@ -61,7 +59,6 @@ services:
       - traefik_network
 
     labels:
-      # Traefik enable
       - "traefik.enable=true"
       - "traefik.docker.network=traefik_network"
 

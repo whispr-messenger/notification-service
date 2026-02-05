@@ -26,12 +26,8 @@ services:
     container_name: whispr-notification-test-runner
     environment:
       MIX_ENV: test
-      # Si un jour tu ajoutes une DB, tu pourras remettre un DATABASE_URL ici.
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      # variables spécifiques au service si besoin pour les tests, ex :
-      # FCM_PROJECT_ID: test-project
-      # APNS_MODE: dev
     volumes:
       - ../..:/app
       - test-deps:/app/deps
