@@ -5,7 +5,6 @@ import Config
 # ======================================================================
 
 config :whispr_notification,
-  # Si tu ajoutes un Repo plus tard, ajoute-le ici
   ecto_repos: [],
   generators: [binary_id: true]
 
@@ -79,13 +78,11 @@ config :whispr_notification, :services,
 # FCM / APNS (Pigeon / Fcmex)
 # ======================================================================
 
-# Exemple FCM via Fcmex
+
 config :fcmex,
   project_id: System.get_env("FCM_PROJECT_ID"),
-  # clé JSON ou chemin vers le fichier de credentials, selon ta config Goth/Google
   json_keyfile: System.get_env("FCM_JSON_KEYFILE")
 
-# Exemple APNS via Pigeon (à adapter selon ton mode token/cert)
 config :pigeon, :apns,
   apns_default: %{
     key: System.get_env("APNS_KEY_PATH"),
