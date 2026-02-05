@@ -1,0 +1,101 @@
+# Docker Compose for WhisprNotification Production Environment
+version: '3.8'
+
+services:
+  notification-service:
+    build:
+      context: ../..
+      dockerfile: docker/prod/Dockerfile
+      target: runtime
+
+    env_file:
+      - ./env/notification.prod.env
+
+    environment:
+      PHX_HOST: ${PHX_HOST:-0.0.0.0}
+      MIX_ENV: ${MIX_ENV:-prod}
+
+    ports:
+      - "${HTTP_PORT:-4000}:4000"
+      - "${GRPC_PORT:-50052}:50052"
+      - "${METRICS_PORT:-9090}:9090"
+
+    volumes:
+      - app_data:/app/data
+      - app_logs:/app/logs
+
+    deploy:
+      replicas: ${REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-1.0}'
+          memory: ${MEMORY_LIMIT:-1G}
+        reservations:
+          cpus: '${CPU_RESERVATION:-0.5}'
+          memory: ${MEMORY_RESERVATION:-512M}
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    networks:
+      - whispr_network
+      - traefik_network
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_network"
+
+      # HTTP router
+      - "traefik.http.routers.notification-http.rule=Host(`notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.http.routers.notification-http.entrypoints=web"
+      - "traefik.http.routers.notification-http.middlewares=redirect-to-https"
+
+      # HTTPS router
+      - "traefik.http.routers.notification-https.rule=Host(`notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.http.routers.notification-https.entrypoints=websecure"
+      - "traefik.http.routers.notification-https.tls=true"
+      - "traefik.http.routers.notification-https.tls.certresolver=le"
+
+      # HTTP service (Phoenix)
+      - "traefik.http.services.notification.loadbalancer.server.port=4000"
+
+      # Middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+
+      # gRPC router (TCP)
+      - "traefik.tcp.routers.notification-grpc.rule=HostSNI(`grpc-notification.${DOMAIN:-whispr.local}`)"
+      - "traefik.tcp.routers.notification-grpc.entrypoints=grpc"
+      - "traefik.tcp.routers.notification-grpc.tls=true"
+      - "traefik.tcp.routers.notification-grpc.tls.certresolver=le"
+      - "traefik.tcp.services.notification-grpc.loadbalancer.server.port=50052"
+
+volumes:
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  whispr_network:
+    driver: overlay
+    attachable: true
+  traefik_network:
+    external: true

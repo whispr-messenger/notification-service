@@ -1,0 +1,51 @@
+# Docker Compose for WhisprNotification Test Environment
+name: whispr-notification-test
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: whispr-notification-test-redis
+    expose:
+      - "6379"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    tmpfs:
+      - /data
+
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: docker/test/Dockerfile
+      cache_from:
+        - whispr-notification-test:latest
+    container_name: whispr-notification-test-runner
+    environment:
+      MIX_ENV: test
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    volumes:
+      - ../..:/app
+      - test-deps:/app/deps
+      - test-build:/app/_build
+      - ../../cover:/app/cover
+    networks:
+      - test-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: /bin/bash -c "mix deps.get && mix test && mix coveralls.html && mix coveralls.xml"
+
+volumes:
+  test-deps:
+    driver: local
+  test-build:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
