@@ -4,60 +4,28 @@ version: '3.8'
 services:
   notification-service:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: docker/prod/Dockerfile
       target: runtime
+
+    # Charge toutes les variables depuis le .env prod
+    env_file:
+      - ./env/notification.prod.env
+
+    # Seulement ce que tu veux forcer ici
     environment:
-      # Database (idéalement DB managée en prod)
-      DATABASE_URL: ${DATABASE_URL}
+      PHX_HOST: ${PHX_HOST:-0.0.0.0}
+      MIX_ENV: ${MIX_ENV:-prod}
 
-      # Redis (idéalement Redis managé)
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_DB: ${REDIS_DB:-0}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-
-      # Phoenix / HTTP
-      PHX_HOST: 0.0.0.0
-      PHX_PORT: 4000
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
-
-      # gRPC
-      GRPC_PORT: 50052
-
-      # Environnement
-      MIX_ENV: prod
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-
-      # Clés de notifications (à adapter à ton implémentation réelle)
-      FCM_PROJECT_ID: ${FCM_PROJECT_ID}
-      FCM_CREDENTIALS_JSON: ${FCM_CREDENTIALS_JSON}
-      APNS_TEAM_ID: ${APNS_TEAM_ID}
-      APNS_KEY_ID: ${APNS_KEY_ID}
-      APNS_AUTH_KEY_PATH: ${APNS_AUTH_KEY_PATH}
-      APNS_ENV: ${APNS_ENV:-production}
-
-      # Observabilité
-      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
-      METRICS_PORT: ${METRICS_PORT:-9090}
-      JAEGER_ENDPOINT: ${JAEGER_ENDPOINT}
-
-      # Déploiement / clustering BEAM
-      RELEASE_NAME: ${RELEASE_NAME:-whispr-notification}
-      RELEASE_VERSION: ${RELEASE_VERSION:-latest}
-      NODE_NAME: ${NODE_NAME:-notification@${HOSTNAME}}
-      ERLANG_COOKIE: ${ERLANG_COOKIE}
-
-      # Monitoring
-      HEALTH_CHECK_PATH: ${HEALTH_CHECK_PATH:-/api/v1/health}
-      METRICS_PATH: ${METRICS_PATH:-/metrics}
     ports:
       - "${HTTP_PORT:-4000}:4000"
       - "${GRPC_PORT:-50052}:50052"
       - "${METRICS_PORT:-9090}:9090"
+
     volumes:
       - app_data:/app/data
       - app_logs:/app/logs
+
     deploy:
       replicas: ${REPLICAS:-2}
       restart_policy:
@@ -80,15 +48,18 @@ services:
         reservations:
           cpus: '${CPU_RESERVATION:-0.5}'
           memory: ${MEMORY_RESERVATION:-512M}
+
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/api/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
     networks:
       - whispr_network
       - traefik_network
+
     labels:
       # Traefik enable
       - "traefik.enable=true"

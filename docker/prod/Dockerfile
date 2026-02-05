@@ -80,7 +80,8 @@ USER whispr
 # Expose ports (HTTP + gRPC) - adapte si besoin
 EXPOSE 4002 4003
 
-# Health check - adapte l’URL à ce que ton service expose
+# Health check - adapte l’URL à ce que ton service expose*
+# Image ghcr.io/whispr-messenger/notification-service:e0536bd@sha256:c6e9c986fa2f96393fc0cf755c6e52ec3109fb2c89bafdf7f5c0139dbd3c1659
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
 
