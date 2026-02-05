@@ -40,17 +40,14 @@ config :whispr_notification,
   grpc_port: String.to_integer(System.get_env("GRPC_PORT", "50053"))
 
 # ======================================================================
-# Notifications & workers (exemples de réglages domaine)
+# Notifications & workers
 # ======================================================================
 
 config :whispr_notification, :notifications,
-  # nombre de jours à garder l’historique
   retention_days: String.to_integer(System.get_env("NOTIF_RETENTION_DAYS", "90")),
-  # taille batch de cleanup
   cleanup_batch_size: String.to_integer(System.get_env("NOTIF_CLEANUP_BATCH_SIZE", "1000"))
 
 config :whispr_notification, :workers,
-  # fréquences en ms (tu peux ajuster avec tes @interval)
   metrics_interval: String.to_integer(System.get_env("METRICS_INTERVAL_MS", "60000")),
   cleanup_interval: String.to_integer(System.get_env("CLEANUP_INTERVAL_MS", "43200000")),
   cache_sync_interval: String.to_integer(System.get_env("CACHE_SYNC_INTERVAL_MS", "600000")),
@@ -88,7 +85,7 @@ config :pigeon, :apns,
     key: System.get_env("APNS_KEY_PATH"),
     key_identifier: System.get_env("APNS_KEY_ID"),
     team_id: System.get_env("APNS_TEAM_ID"),
-    mode: String.to_atom(System.get_env("APNS_MODE", "dev")), # :dev ou :prod
+    mode: String.to_atom(System.get_env("APNS_MODE", "dev")),
     ping_interval: 600_000
   }
 
@@ -105,8 +102,6 @@ config :logger, :console,
 # ======================================================================
 
 config :phoenix_swagger, json_library: Jason
-
-# Si tu as un module Telemetry dédié :
 config :whispr_notification, WhisprNotificationsWeb.Telemetry, metrics: []
 
 # ======================================================================
