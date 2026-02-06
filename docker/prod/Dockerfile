@@ -55,10 +55,12 @@ FROM alpine:3.18 AS runtime
 RUN apk add --no-cache \
     libstdc++ \
     openssl \
+    openssl1.1-compat \
     ncurses-libs \
     libgcc \
     curl \
     bash
+
 
 # Create non-root user for security
 RUN addgroup -g 1000 whispr && \
@@ -68,7 +70,7 @@ RUN addgroup -g 1000 whispr && \
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
     PORT=4002 \
-    GRPC_PORT=4003
+    GRPC_PORT=50052
 
 WORKDIR /app
 
@@ -78,7 +80,7 @@ COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notificati
 USER whispr
 
 # Expose ports (HTTP + gRPC) - adapte si besoin
-EXPOSE 4002 4003
+EXPOSE 4002 50052
 
 # Health check - adapte l’URL à ce que ton service expose*
 # Image ghcr.io/whispr-messenger/notification-service:e0536bd@sha256:c6e9c986fa2f96393fc0cf755c6e52ec3109fb2c89bafdf7f5c0139dbd3c1659
