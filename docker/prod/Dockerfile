@@ -55,9 +55,15 @@ FROM elixir:1.19-alpine AS runtime
 
 # Install runtime dependencies only
 RUN apk add --no-cache \
+    libstdc++ \
+    openssl \
+    openssl1.1-compat \
+    ncurses-libs \
+    libgcc \
     curl \
     bash \
     openssl
+
 
 # Create non-root user for security
 RUN addgroup -g 1000 whispr && \
@@ -67,7 +73,7 @@ RUN addgroup -g 1000 whispr && \
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
     PORT=4002 \
-    GRPC_PORT=4003
+    GRPC_PORT=50052
 
 WORKDIR /app
 
@@ -78,6 +84,8 @@ USER whispr
 
 # Expose ports (HTTP + gRPC)
 EXPOSE 4002 4003
+# Expose ports (HTTP + gRPC) - adapte si besoin
+EXPOSE 4002 50052
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
