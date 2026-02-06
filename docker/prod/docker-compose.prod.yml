@@ -16,7 +16,7 @@ services:
       MIX_ENV: ${MIX_ENV:-prod}
 
     ports:
-      - "${HTTP_PORT:-4000}:4000"
+      - "${HTTP_PORT:-4000}:4002"
       - "${GRPC_PORT:-50052}:50052"
       - "${METRICS_PORT:-9090}:9090"
 
