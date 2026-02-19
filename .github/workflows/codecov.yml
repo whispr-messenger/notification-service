@@ -1,0 +1,33 @@
+name: Codecov (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        description: 'Git ref to checkout'
+    secrets:
+      CODECOV_TOKEN:
+        required: true
+
+jobs:
+  codecov:
+    name: 📊 Coverage Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./cover/excoveralls.xml
+          flags: unittests
+          name: notification-service-coverage
+          fail_ci_if_error: true
+          verbose: true
