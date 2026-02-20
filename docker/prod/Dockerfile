@@ -1,15 +1,12 @@
 # =============================================================================
-# Whispr Notification Service - Dockerfile
-# Multi-stage build for production-ready Elixir application
+# Whispr Notification Service - Production Dockerfile
+# Multi-stage build for Elixir release
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # STAGE 1: Build
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
-
-ARG SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
 
 # Install build dependencies
 RUN apk add --no-cache \
@@ -26,7 +23,7 @@ WORKDIR /app
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# Copy dependency files first (for caching)
+# Copy mix files first (cache optimization)
 COPY mix.exs mix.lock ./
 COPY config config
 
@@ -36,7 +33,6 @@ RUN mix deps.get --only prod && \
 
 # Copy application source
 COPY lib lib
-COPY priv priv
 
 # Compile application
 RUN mix compile
@@ -47,12 +43,12 @@ RUN mix release
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-# ⚠ IMPORTANT:
-# On utilise la même base Alpine/Erlang que le builder
-# pour éviter les erreurs OpenSSL / crypto NIF
+# IMPORTANT:
+# On utilise erlang:27-alpine pour garder la compatibilité
+# avec le build stage et éviter les erreurs crypto/OpenSSL.
 FROM erlang:27-alpine AS runtime
 
-# Install runtime dependencies only
+# Runtime dependencies only
 RUN apk add --no-cache \
     libstdc++ \
     openssl \
@@ -81,10 +77,5 @@ EXPOSE 4002 4003
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
-
-LABEL org.opencontainers.image.title="Whispr Notification Service" \
-    org.opencontainers.image.description="Notification service for Whispr Messenger" \
-    org.opencontainers.image.vendor="Whispr" \
-    org.opencontainers.image.version="0.1.0"
 
 CMD ["bin/whispr_notification", "start"]
