@@ -1,6 +1,6 @@
 # =============================================================================
 # Whispr Notification Service - Production Dockerfile
-# Multi-stage build for Elixir release
+# Multi-stage build for Elixir release (Alpine stable)
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -8,11 +8,13 @@
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
 
-# Install build dependencies
+# Install build dependencies (IMPORTANT pour NIF / crypto / grpc / ssl)
 RUN apk add --no-cache \
     build-base \
     git \
-    curl
+    curl \
+    openssl-dev \
+    ncurses-dev
 
 ENV MIX_ENV=prod \
     LANG=C.UTF-8
@@ -23,13 +25,13 @@ WORKDIR /app
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# Copy mix files first (cache optimization)
+# Copy dependency files first (cache optimization)
 COPY mix.exs mix.lock ./
 COPY config config
 
-# Install and compile dependencies
-RUN mix deps.get --only prod && \
-    mix deps.compile
+# Fetch and compile dependencies
+RUN mix deps.get --only prod
+RUN mix deps.compile
 
 # Copy application source
 COPY lib lib
@@ -43,9 +45,7 @@ RUN mix release
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-# IMPORTANT:
-# On utilise erlang:27-alpine pour garder la compatibilité
-# avec le build stage et éviter les erreurs crypto/OpenSSL.
+# On garde erlang:27-alpine pour compatibilité OTP/OpenSSL
 FROM erlang:27-alpine AS runtime
 
 # Runtime dependencies only
