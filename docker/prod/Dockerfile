@@ -1,6 +1,6 @@
 # =============================================================================
-# Whispr Notification Service - Production Dockerfile
-# Multi-stage build pour Elixir release sur Alpine
+# Whispr Notification Service - Dockerfile
+# Multi-stage build for production-ready Elixir application
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -8,59 +8,62 @@
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
 
-# Installer build dependencies pour compiler toutes les deps (NIF, crypto, grpc, ssl)
+ARG SECRET_KEY_BASE
+ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
+
+# Install build dependencies
 RUN apk add --no-cache \
     build-base \
     git \
     curl \
-    openssl-dev \
-    ncurses-dev \
-    ca-certificates \
-    bash
+    openssl-dev
 
+# Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8
 
+# Create app directory
 WORKDIR /app
 
-# Installer Hex + Rebar
+# Install hex + rebar
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# Copier les fichiers de dépendances pour cache
+# Copy dependency files first (for caching)
 COPY mix.exs mix.lock ./
 COPY config config
 
-# Récupérer et compiler les dépendances
-RUN mix deps.get --only prod
-RUN mix deps.compile
+# Install dependencies
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    mix deps.get --only prod && \
+    mix deps.compile
 
-# Copier le code source
+# Copy application code
 COPY lib lib
 
-# Compiler l'application et build la release
+# Compile the application
 RUN mix compile
+
+# Build release
 RUN mix release
 
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-FROM erlang:27-alpine AS runtime
+FROM elixir:1.19-alpine AS runtime
 
-# Installer runtime dependencies
+# Install runtime dependencies only
 RUN apk add --no-cache \
-    libstdc++ \
-    openssl \
-    ncurses-libs \
-    libgcc \
     curl \
     bash \
-    ca-certificates
+    openssl
 
-# Créer un utilisateur non-root
+# Create non-root user for security
 RUN addgroup -g 1000 whispr && \
     adduser -u 1000 -G whispr -s /bin/sh -D whispr
 
+# Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
     PORT=4002 \
@@ -68,14 +71,23 @@ ENV MIX_ENV=prod \
 
 WORKDIR /app
 
-# Copier la release depuis le builder
+# Copy release from builder
 COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notification ./
 
 USER whispr
 
+# Expose ports (HTTP + gRPC)
 EXPOSE 4002 4003
 
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
 
+# OCI Labels
+LABEL org.opencontainers.image.title="Whispr Notification Service" \
+    org.opencontainers.image.description="Notification service for Whispr Messenger" \
+    org.opencontainers.image.vendor="Whispr" \
+    org.opencontainers.image.version="0.1.0"
+
+# Start the application
 CMD ["bin/whispr_notification", "start"]
