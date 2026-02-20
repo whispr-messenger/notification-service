@@ -49,7 +49,7 @@ RUN mix release
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-FROM alpine:3.18 AS runtime
+FROM alpine:3.21 AS runtime
 
 # Install runtime dependencies
 RUN apk add --no-cache \
@@ -87,9 +87,9 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \
-      org.opencontainers.image.description="Notification service for Whispr Messenger" \
-      org.opencontainers.image.vendor="Whispr" \
-      org.opencontainers.image.version="0.1.0"
+    org.opencontainers.image.description="Notification service for Whispr Messenger" \
+    org.opencontainers.image.vendor="Whispr" \
+    org.opencontainers.image.version="0.1.0"
 
 # Start the application
 CMD ["bin/whispr_notification", "start"]
