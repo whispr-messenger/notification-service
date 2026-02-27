@@ -27,18 +27,32 @@ jobs:
         with:
           name: coverage
 
-      - name: Debug coverage files
+      - name: Prepare coverage file for Codecov
+        id: coverage_path
         run: |
-          pwd
-          ls -la
-          ls -la cover 2>/dev/null || echo "no cover dir"
-          ls -la coverage 2>/dev/null || echo "no coverage dir"
-          find . -name "excoveralls.xml" -o -name "*.xml" 2>/dev/null || true
+          # L'artifact est extrait dans un dossier nommé "coverage" (nom de l'artifact)
+          # Codecov supporte mieux Cobertura (coverage.xml) puis excoveralls.xml
+          COV_FILE=""
+          for path in coverage/coverage.xml coverage/cover/coverage.xml cover/coverage.xml \
+                      coverage/excoveralls.xml coverage/cover/excoveralls.xml cover/excoveralls.xml excoveralls.xml; do
+            if [ -f "$path" ]; then
+              COV_FILE="$path"
+              break
+            fi
+          done
+          if [ -z "$COV_FILE" ]; then
+            echo "Aucun rapport de couverture trouvé. Fichiers XML présents :"
+            find . -type f -name "*.xml" 2>/dev/null
+            exit 1
+          fi
+          echo "path=$COV_FILE" >> $GITHUB_OUTPUT
+          echo "Fichier de couverture trouvé: $COV_FILE"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ steps.coverage_path.outputs.path }}
           flags: unittests
           name: notification-service-coverage
           fail_ci_if_error: true
