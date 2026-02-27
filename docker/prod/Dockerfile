@@ -59,6 +59,7 @@ RUN apk add --no-cache \
     bash \
     openssl
 
+
 # Create non-root user for security
 RUN addgroup -g 1000 whispr && \
     adduser -u 1000 -G whispr -s /bin/sh -D whispr
@@ -67,7 +68,7 @@ RUN addgroup -g 1000 whispr && \
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
     PORT=4002 \
-    GRPC_PORT=4003
+    GRPC_PORT=50052
 
 WORKDIR /app
 

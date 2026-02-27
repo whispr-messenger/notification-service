@@ -1,69 +1,30 @@
-name: CI/CD - Notification Service
+name: Docker (reusable)
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_call:
+    inputs:
+      ref:
+        required: false
+        type: string
+        description: 'Git ref to checkout'
+      should_deploy:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether to push image to registry'
+    secrets:
+      SECRET_KEY_BASE:
+        required: false
+        description: 'Secret key base for the application'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test:
-    permissions:
-      contents: read
-    name: Test
+  docker:
+    name: 📦 Container Registry
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Build test image
-        run: |
-          docker compose -f docker/test/compose.yml build
-
-      - name: Run tests with Docker Compose
-        run: |
-          docker compose -f docker/test/compose.yml up --abort-on-container-exit --exit-code-from test-runner
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./cover/excoveralls.xml
-          flags: unittests
-          name: notification-service-coverage
-          fail_ci_if_error: true
-          verbose: true
-
-      - name: Show test logs
-        if: failure()
-        run: |
-          docker compose -f docker/test/compose.yml logs test-runner
-
-      - name: Cleanup
-        if: always()
-        run: |
-          docker compose -f docker/test/compose.yml down -v
-
-  build-and-push:
-    name: Build & Push Docker Image
-    runs-on: ubuntu-latest
-    needs: test
 
     permissions:
       contents: read
@@ -77,11 +38,14 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
+        if: inputs.should_deploy
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -100,11 +64,12 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: docker/prod/Dockerfile
-          push: true
+          push: ${{ inputs.should_deploy }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -112,8 +77,8 @@ jobs:
           build-args: |
             SECRET_KEY_BASE=${{ secrets.SECRET_KEY_BASE }}
 
-
       - name: Scan image for vulnerabilities
+        if: inputs.should_deploy
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
@@ -122,7 +87,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy scan results
+        if: inputs.should_deploy && always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: 'trivy-results.sarif'
