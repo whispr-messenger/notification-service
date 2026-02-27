@@ -11,6 +11,16 @@ on:
       CODECOV_TOKEN:
         required: true
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  packages: write
+  security-events: write
+  actions: read
+  attestations: write
+  id-token: write
+
 jobs:
   codecov:
     name: 📊 Coverage Report
