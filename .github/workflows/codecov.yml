@@ -15,11 +15,6 @@ permissions:
   contents: read
   checks: write
   pull-requests: write
-  packages: write
-  security-events: write
-  actions: read
-  attestations: write
-  id-token: write
 
 jobs:
   codecov:
@@ -32,11 +27,18 @@ jobs:
         with:
           name: coverage
 
+      - name: Debug coverage files
+        run: |
+          pwd
+          ls -la
+          ls -la cover 2>/dev/null || echo "no cover dir"
+          ls -la coverage 2>/dev/null || echo "no coverage dir"
+          find . -name "excoveralls.xml" -o -name "*.xml" 2>/dev/null || true
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./cover/excoveralls.xml
           flags: unittests
           name: notification-service-coverage
           fail_ci_if_error: true
