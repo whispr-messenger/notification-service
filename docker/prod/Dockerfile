@@ -7,6 +7,7 @@
 # STAGE 1: Build
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
+
 ARG SECRET_KEY_BASE
 ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
 
@@ -14,7 +15,8 @@ ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
 RUN apk add --no-cache \
     build-base \
     git \
-    curl
+    curl \
+    openssl-dev
 
 # Set environment variables
 ENV MIX_ENV=prod \
@@ -43,23 +45,19 @@ COPY lib lib
 # Compile the application
 RUN mix compile
 
-# Build release (nom par défaut = app: :whispr_notification)
+# Build release
 RUN mix release
 
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-FROM alpine:3.18 AS runtime
+FROM elixir:1.19-alpine AS runtime
 
-# Install runtime dependencies
+# Install runtime dependencies only
 RUN apk add --no-cache \
-    libstdc++ \
-    openssl \
-    openssl1.1-compat \
-    ncurses-libs \
-    libgcc \
     curl \
-    bash
+    bash \
+    openssl
 
 
 # Create non-root user for security
@@ -79,19 +77,18 @@ COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notificati
 
 USER whispr
 
-# Expose ports (HTTP + gRPC) - adapte si besoin
-EXPOSE 4002 50052
+# Expose ports (HTTP + gRPC)
+EXPOSE 4002 4003
 
-# Health check - adapte l’URL à ce que ton service expose*
-# Image ghcr.io/whispr-messenger/notification-service:e0536bd@sha256:c6e9c986fa2f96393fc0cf755c6e52ec3109fb2c89bafdf7f5c0139dbd3c1659
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \
-      org.opencontainers.image.description="Notification service for Whispr Messenger" \
-      org.opencontainers.image.vendor="Whispr" \
-      org.opencontainers.image.version="0.1.0"
+    org.opencontainers.image.description="Notification service for Whispr Messenger" \
+    org.opencontainers.image.vendor="Whispr" \
+    org.opencontainers.image.version="0.1.0"
 
 # Start the application
 CMD ["bin/whispr_notification", "start"]
