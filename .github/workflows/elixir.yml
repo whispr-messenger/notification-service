@@ -2,9 +2,9 @@ name: CI/CD - Notification Service
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, deploy/avant-preprod, deploy/preprod]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, deploy/avant-preprod, deploy/preprod]
 
 env:
   REGISTRY: ghcr.io
