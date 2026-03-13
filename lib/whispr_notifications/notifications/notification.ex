@@ -17,7 +17,7 @@ defmodule WhisprNotifications.Notifications.Notification do
     :metadata
   ]
 
-  @type type :: :message | :group | :system
+  @type type :: :message | :group | :system | :new_message | :group_invite | :contact_request
 
   @type t :: %__MODULE__{
           id: String.t(),
