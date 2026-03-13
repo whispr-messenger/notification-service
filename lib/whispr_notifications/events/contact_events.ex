@@ -1,39 +1,45 @@
-defmodule WhisprNotifications.Events.GroupEvents do
+defmodule WhisprNotifications.Events.ContactEvents do
   @moduledoc """
-  Événements liés aux groupes (ajout, changement de rôle, etc).
+  Handles contact-related events (contact requests, acceptances).
+  Converts events into Notification structs and dispatches them.
   """
 
   alias WhisprNotifications.Notifications.{Notification, Filter, History}
   alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
 
-  @type group_event :: %{
+  @type contact_event :: %{
     user_id: String.t(),
-    group_id: String.t(),
-    actor_id: String.t(),
-    action: :added | :removed | :role_changed
+    from_user_id: String.t(),
+    from_username: String.t(),
+    action: :request | :accepted
   }
 
-  @spec handle(group_event()) :: :ok
+  @spec handle(contact_event()) :: :ok
   def handle(event) do
     {title, body} =
       case event.action do
-        :added -> {"Ajouté au groupe", "Vous avez été ajouté à un groupe"}
-        :removed -> {"Retiré de groupe", "Vous avez été retiré d'un groupe"}
-        :role_changed -> {"Rôle mis à jour", "Votre rôle dans le groupe a changé"}
+        :request ->
+          {"Contact request",
+           "#{Map.get(event, :from_username, "Someone")} sent you a contact request"}
+
+        :accepted ->
+          {"Contact accepted",
+           "#{Map.get(event, :from_username, "Someone")} accepted your contact request"}
       end
+
     notif =
       Notification.new(%{
         user_id: event.user_id,
-        type: :group,
+        type: :contact_request,
         title: title,
         body: body,
         context: %{
-          "group_id" => event.group_id,
-          "actor_id" => event.actor_id,
+          "from_user_id" => event.from_user_id,
           "action" => Atom.to_string(event.action)
         }
       })
+
     if Filter.should_send?(notif) do
       {:ok, cache} = CacheManager.get_cache(event.user_id)
       :ok = BatchProcessor.deliver(notif, cache)

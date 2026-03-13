@@ -5,7 +5,7 @@ import Config
 # ======================================================================
 
 config :whispr_notification,
-  ecto_repos: [],
+  ecto_repos: [WhisprNotifications.Repo],
   generators: [binary_id: true]
 
 # ======================================================================
@@ -37,7 +37,7 @@ config :whispr_notification, :redis,
 # ======================================================================
 
 config :whispr_notification,
-  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "50053"))
+  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "40011"))
 
 # ======================================================================
 # Notifications & workers

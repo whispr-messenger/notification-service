@@ -5,17 +5,23 @@ defmodule WhisprNotificationsWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/api", WhisprNotificationsWeb do
+  scope "/api/v1", WhisprNotificationsWeb do
     pipe_through :api
 
-    # Gestion des réglages de notifications
-    resources "/settings", SettingsController, only: [:show, :update]
+    # Health check
+    get "/health", HealthController, :live
 
-    # Mute / unmute conversation
-    post "/conversations/:conversation_id/mute", MuteController, :mute
-    delete "/conversations/:conversation_id/mute", MuteController, :unmute
+    # Device token registration
+    get "/devices", DeviceController, :index
+    post "/devices", DeviceController, :create
+    delete "/devices/:device_id", DeviceController, :delete
 
-    # Health check simple
-    get "/v1/health", HealthController, :live
+    # Notification settings
+    get "/notifications/settings", SettingsController, :show
+    patch "/notifications/settings", SettingsController, :update
+
+    # Per-conversation mute/unmute
+    post "/conversations/:id/mute", MuteController, :mute
+    delete "/conversations/:id/mute", MuteController, :unmute
   end
 end

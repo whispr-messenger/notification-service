@@ -1,30 +1,79 @@
 defmodule WhisprNotificationsWeb.SettingsController do
   use WhisprNotificationsWeb, :controller
 
-  alias WhisprNotifications.Preferences.Manager
+  alias WhisprNotifications.Preferences.Settings
 
-  # GET /api/settings/:user_id
-  def show(conn, %{"user_id" => user_id}) do
-    with {:ok, user_settings} <- Manager.get_user_settings(user_id) do
-      json(conn, %{
-        user_id: user_settings.user_id,
-        message_push_enabled: user_settings.message_push_enabled,
-        message_email_enabled: user_settings.message_email_enabled,
-        system_push_enabled: user_settings.system_push_enabled,
-        marketing_push_enabled: user_settings.marketing_push_enabled,
-        quiet_hours_start: user_settings.quiet_hours_start,
-        quiet_hours_end: user_settings.quiet_hours_end
-      })
-    else
-      _ -> send_resp(conn, 404, "")
+  @doc """
+  GET /api/v1/notifications/settings
+  Returns the notification settings for the authenticated user.
+  """
+  def show(conn, params) do
+    user_id = get_user_id(conn, params)
+
+    case Settings.get_user_settings(user_id) do
+      {:ok, settings} ->
+        json(conn, %{
+          user_id: settings.user_id,
+          mute_all: settings.mute_all,
+          message_notifications: settings.message_notifications,
+          group_notifications: settings.group_notifications,
+          contact_notifications: settings.contact_notifications
+        })
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Failed to retrieve settings"})
     end
   end
 
-  # PUT /api/settings/:user_id
-  # Pour l’instant on renvoie du stub, tu brancheras sur ton stockage réel
-  def update(conn, %{"user_id" => user_id} = params) do
-    # TODO: persister les settings et renvoyer le nouvel état
-    _ = {user_id, params}
-    send_resp(conn, 204, "")
+  @doc """
+  PATCH /api/v1/notifications/settings
+  Updates notification settings for the authenticated user.
+
+  Accepted fields:
+    - mute_all (boolean)
+    - message_notifications (boolean)
+    - group_notifications (boolean)
+    - contact_notifications (boolean)
+  """
+  def update(conn, params) do
+    user_id = get_user_id(conn, params)
+
+    allowed_keys = ~w(mute_all message_notifications group_notifications contact_notifications)
+    update_attrs = Map.take(params, allowed_keys)
+
+    case Settings.update_user_settings(user_id, update_attrs) do
+      {:ok, settings} ->
+        json(conn, %{
+          user_id: settings.user_id,
+          mute_all: settings.mute_all,
+          message_notifications: settings.message_notifications,
+          group_notifications: settings.group_notifications,
+          contact_notifications: settings.contact_notifications
+        })
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: format_errors(changeset)})
+
+      {:error, _reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "Failed to update settings"})
+    end
+  end
+
+  defp get_user_id(conn, params) do
+    Map.get(params, "user_id") || get_req_header(conn, "x-user-id") |> List.first()
+  end
+
+  defp format_errors(%Ecto.Changeset{} = changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
   end
 end
