@@ -66,8 +66,8 @@ RUN addgroup -g 1000 whispr && \
 # Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
-    PORT=4002 \
-    GRPC_PORT=4003
+    HTTP_PORT=4011 \
+    GRPC_PORT=40011
 
 WORKDIR /app
 
@@ -77,11 +77,11 @@ COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notificati
 USER whispr
 
 # Expose ports (HTTP + gRPC)
-EXPOSE 4002 4003
+EXPOSE 4011 40011
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:4002/api/v1/health?type=live || exit 1
+    CMD curl -f http://localhost:${HTTP_PORT:-4011}/api/v1/health?type=live || exit 1
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \
