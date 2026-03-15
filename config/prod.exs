@@ -7,7 +7,7 @@ import Config
 config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   http: [
     ip: {0, 0, 0, 0},
-    port: String.to_integer(System.get_env("PORT", "4002"))
+    port: String.to_integer(System.get_env("HTTP_PORT", "4011"))
   ],
   url: [
     host: System.get_env("PHX_HOST", "localhost"),
@@ -35,7 +35,7 @@ config :whispr_notification, :redis,
 # ======================================================================
 
 config :whispr_notification,
-  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "50053"))
+  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "40011"))
 
 # ======================================================================
 # Logging production
