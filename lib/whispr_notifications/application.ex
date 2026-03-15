@@ -9,7 +9,8 @@ defmodule WhisprNotifications.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Exemples de superviseurs/GenServers de ton domaine
+      {Phoenix.PubSub, name: WhisprNotifications.PubSub},
+      WhisprNotificationsWeb.Endpoint,
       {WhisprNotifications.Devices.CacheManager, []},
       {WhisprNotifications.Workers.TokenRefresher, []},
       {WhisprNotifications.Workers.CacheSyncWorker, []},

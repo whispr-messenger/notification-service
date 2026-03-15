@@ -14,7 +14,7 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
     port: 443,
     scheme: "https"
   ],
-  secret_key_base: System.fetch_env!("SECRET_KEY_BASE"),
+  secret_key_base: System.get_env("SECRET_KEY_BASE", String.duplicate("x", 64)),
   check_origin: false,
   server: true
 
