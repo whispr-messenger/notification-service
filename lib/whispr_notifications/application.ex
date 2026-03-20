@@ -21,6 +21,9 @@ defmodule WhisprNotifications.Application do
       # Device cache
       {WhisprNotifications.Devices.CacheManager, []},
 
+      # APNS dispatcher
+      WhisprNotifications.APNS,
+
       # Background workers
       {WhisprNotifications.Workers.TokenRefresher, []},
       {WhisprNotifications.Workers.CacheSyncWorker, []},

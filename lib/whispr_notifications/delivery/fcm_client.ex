@@ -16,13 +16,13 @@ defmodule WhisprNotifications.Delivery.FcmClient do
 
   @impl true
   def send(device, payload) do
-    project_id = Application.get_env(:fcmex, :project_id)
-
-    if is_nil(project_id) do
-      Logger.warning("FCM project_id not configured, skipping push notification")
-      {:error, :fcm_not_configured}
+    with {:ok, project_id} <- fetch_project_id(),
+         {:ok, token} <- fetch_token(device) do
+      send_via_fcm(token, to_string(device.platform), payload, project_id)
     else
-      send_via_fcm(device, payload, project_id)
+      {:error, reason} ->
+        Logger.warning("FCM push skipped: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -31,20 +31,25 @@ defmodule WhisprNotifications.Delivery.FcmClient do
   Used for both Android and iOS devices registered with FCM.
   """
   def send_to_token(token, title, body, data \\ %{}) do
-    project_id = Application.get_env(:fcmex, :project_id)
-
-    message = %{
-      "message" => %{
-        "token" => token,
-        "notification" => %{
-          "title" => title,
-          "body" => body
-        },
-        "data" => stringify_data(data)
+    with {:ok, project_id} <- fetch_project_id(),
+         {:ok, token} <- fetch_token(%{token: token}) do
+      message = %{
+        "message" => %{
+          "token" => token,
+          "notification" => %{
+            "title" => title,
+            "body" => body
+          },
+          "data" => stringify_data(data)
+        }
       }
-    }
 
-    post_to_fcm(message, project_id)
+      post_to_fcm(message, project_id)
+    else
+      {:error, reason} ->
+        Logger.warning("FCM send_to_token skipped: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -52,49 +57,51 @@ defmodule WhisprNotifications.Delivery.FcmClient do
   Applies Android or APNS-specific options depending on the device platform.
   """
   def send_platform_message(token, platform, title, body, data \\ %{}) do
-    project_id = Application.get_env(:fcmex, :project_id)
+    with {:ok, project_id} <- fetch_project_id(),
+         {:ok, token} <- fetch_token(%{token: token}) do
+      base_message = %{
+        "token" => token,
+        "notification" => %{
+          "title" => title,
+          "body" => body
+        },
+        "data" => stringify_data(data)
+      }
 
-    base_message = %{
-      "token" => token,
-      "notification" => %{
-        "title" => title,
-        "body" => body
-      },
-      "data" => stringify_data(data)
-    }
-
-    message =
-      case platform do
-        "android" ->
-          Map.put(base_message, "android", %{
-            "priority" => "high",
-            "notification" => %{
-              "channel_id" => "whispr_messages",
-              "sound" => "default"
-            }
-          })
-
-        "ios" ->
-          Map.put(base_message, "apns", %{
-            "payload" => %{
-              "aps" => %{
-                "sound" => "default",
-                "badge" => 1
+      message =
+        case platform do
+          "android" ->
+            Map.put(base_message, "android", %{
+              "priority" => "high",
+              "notification" => %{
+                "channel_id" => "whispr_messages",
+                "sound" => "default"
               }
-            }
-          })
+            })
 
-        _ ->
-          base_message
-      end
+          "ios" ->
+            Map.put(base_message, "apns", %{
+              "payload" => %{
+                "aps" => %{
+                  "sound" => "default",
+                  "badge" => 1
+                }
+              }
+            })
 
-    post_to_fcm(%{"message" => message}, project_id)
+          _ ->
+            base_message
+        end
+
+      post_to_fcm(%{"message" => message}, project_id)
+    else
+      {:error, reason} ->
+        Logger.warning("FCM send_platform_message skipped: #{inspect(reason)}")
+        {:error, reason}
+    end
   end
 
-  defp send_via_fcm(device, payload, project_id) do
-    token = device.token
-    platform = to_string(device.platform)
-
+  defp send_via_fcm(token, platform, payload, _project_id) do
     title = get_in(payload, [:notification, :title]) ||
             get_in(payload, ["aps", "alert", "title"]) ||
             "Whispr"
@@ -107,6 +114,19 @@ defmodule WhisprNotifications.Delivery.FcmClient do
 
     send_platform_message(token, platform, title, body, data)
   end
+
+  defp fetch_project_id do
+    project_id = Application.get_env(:fcmex, :project_id)
+
+    if is_binary(project_id) and project_id != "" do
+      {:ok, project_id}
+    else
+      {:error, :fcm_not_configured}
+    end
+  end
+
+  defp fetch_token(%{token: token}) when is_binary(token) and token != "", do: {:ok, token}
+  defp fetch_token(_), do: {:error, :invalid_device_token}
 
   defp post_to_fcm(message, project_id) do
     url = :io_lib.format(@fcm_v1_url, [project_id]) |> IO.iodata_to_binary()

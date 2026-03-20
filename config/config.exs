@@ -89,6 +89,14 @@ config :pigeon, :apns,
     ping_interval: 600_000
   }
 
+config :whispr_notification, WhisprNotifications.APNS,
+  adapter: Pigeon.APNS,
+  key: System.get_env("APNS_KEY_PATH"),
+  key_identifier: System.get_env("APNS_KEY_ID"),
+  team_id: System.get_env("APNS_TEAM_ID"),
+  topic: System.get_env("APNS_TOPIC"),
+  mode: String.to_atom(System.get_env("APNS_MODE", "dev"))
+
 # ======================================================================
 # Logger
 # ======================================================================
