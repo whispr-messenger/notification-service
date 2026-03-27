@@ -1,5 +1,14 @@
 import Config
 
+# Kubernetes service env vars can be exposed either as plain ports ("3001")
+# or full URIs ("tcp://10.x.x.x:3001"). Normalize both forms.
+parse_port = fn value ->
+  case URI.parse(value) do
+    %URI{port: port} when is_integer(port) -> port
+    _ -> String.to_integer(value)
+  end
+end
+
 # ======================================================================
 # Application principale
 # ======================================================================
@@ -28,7 +37,7 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
 
 config :whispr_notification, :redis,
   host: System.get_env("REDIS_HOST", "localhost"),
-  port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
+  port: parse_port.(System.get_env("REDIS_PORT", "6379")),
   database: String.to_integer(System.get_env("REDIS_DB", "0")),
   password: System.get_env("REDIS_PASSWORD")
 
@@ -37,7 +46,7 @@ config :whispr_notification, :redis,
 # ======================================================================
 
 config :whispr_notification,
-  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "50053"))
+  grpc_port: parse_port.(System.get_env("GRPC_PORT", "50053"))
 
 # ======================================================================
 # Notifications & workers
@@ -60,15 +69,15 @@ config :whispr_notification, :workers,
 config :whispr_notification, :services,
   auth_service: %{
     host: System.get_env("AUTH_SERVICE_HOST", "auth-service"),
-    port: String.to_integer(System.get_env("AUTH_SERVICE_PORT", "50056"))
+    port: parse_port.(System.get_env("AUTH_SERVICE_PORT", "50056"))
   },
   messaging_service: %{
     host: System.get_env("MESSAGING_SERVICE_HOST", "messaging-service"),
-    port: String.to_integer(System.get_env("MESSAGING_SERVICE_PORT", "50052"))
+    port: parse_port.(System.get_env("MESSAGING_SERVICE_PORT", "50052"))
   },
   user_service: %{
     host: System.get_env("USER_SERVICE_HOST", "user-service"),
-    port: String.to_integer(System.get_env("USER_SERVICE_PORT", "50055"))
+    port: parse_port.(System.get_env("USER_SERVICE_PORT", "50055"))
   }
 
 # ======================================================================
