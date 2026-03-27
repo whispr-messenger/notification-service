@@ -24,7 +24,29 @@ $env:JWT_AUDIENCE="whispr-notification"
 $env:JWT_ALLOWED_ALGS="HS256"
 $env:JWT_JWKS_REFRESH_INTERVAL_MS="300000"
 
+https://www.jwt.io/
 
-Bearer Token:
+Header
 
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE
+{
+  "alg": "HS256",
+  "typ": "JWT",
+  "kid": "dev-kid-1"
+}
+
+Payload
+
+{
+  "sub": "11111111-1111-1111-1111-111111111111",
+  "iss": "whispr-auth",
+  "aud": "whispr-notification",
+  "exp": 1893456000
+}
+
+Sign JWT
+
+my-secret-key-1234567890456987453
+
+
+Bearer Token generated
+
