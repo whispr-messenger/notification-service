@@ -16,7 +16,7 @@ services:
       MIX_ENV: ${MIX_ENV:-prod}
 
     ports:
-      - "${HTTP_PORT:-4000}:4000"
+      - "${PORT:-4002}:4002"
       - "${GRPC_PORT:-50052}:50052"
       - "${METRICS_PORT:-9090}:9090"
 
@@ -48,7 +48,7 @@ services:
           memory: ${MEMORY_RESERVATION:-512M}
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-4002}/api/v1/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
