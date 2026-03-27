@@ -8,7 +8,8 @@ defmodule WhisprNotifications.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
+    children =
+      [
       # Database
       WhisprNotifications.Repo,
 
@@ -21,8 +22,8 @@ defmodule WhisprNotifications.Application do
       # Device cache
       {WhisprNotifications.Devices.CacheManager, []},
 
-      # APNS dispatcher
-      WhisprNotifications.APNS,
+      # JWT JWKS cache
+      {WhisprNotifications.Auth.JwksCache, []},
 
       # Background workers
       {WhisprNotifications.Workers.TokenRefresher, []},
@@ -30,6 +31,7 @@ defmodule WhisprNotifications.Application do
       {WhisprNotifications.Workers.CleanupWorker, []},
       {WhisprNotifications.Workers.MetricsWorker, []}
     ]
+      |> maybe_add_apns_dispatcher()
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
     Supervisor.start_link(children, opts)
@@ -39,5 +41,21 @@ defmodule WhisprNotifications.Application do
   def config_change(changed, _new, removed) do
     WhisprNotificationsWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp maybe_add_apns_dispatcher(children) do
+    if apns_configured?() do
+      [WhisprNotifications.APNS | children]
+    else
+      children
+    end
+  end
+
+  defp apns_configured? do
+    config = Application.get_env(:whispr_notification, WhisprNotifications.APNS, [])
+
+    is_binary(Keyword.get(config, :key)) and Keyword.get(config, :key) != "" and
+      is_binary(Keyword.get(config, :key_identifier)) and Keyword.get(config, :key_identifier) != "" and
+      is_binary(Keyword.get(config, :team_id)) and Keyword.get(config, :team_id) != ""
   end
 end

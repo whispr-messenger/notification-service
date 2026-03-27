@@ -6,6 +6,7 @@
 
 # The directory Mix downloads your dependencies sources to.
 /deps/
+.deps_installed
 
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
@@ -19,5 +20,7 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
+# Environment files
 docker/dev/env/*.env
 docker/prod/env/*.env
+jwks.json

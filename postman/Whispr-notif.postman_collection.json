@@ -1,0 +1,331 @@
+{
+	"info": {
+		"_postman_id": "7056e753-6ab2-40de-a7b9-690c79f0dfca",
+		"name": "Whispr-notif",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "30318182"
+	},
+	"item": [
+		{
+			"name": "/api/v1/health",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4011/api/v1/health",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/auth-check",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4011/api/v1/auth-check",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"auth-check"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/devices",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4011/api/v1/devices",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"devices"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/notifications/settings",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:4011/api/v1/notifications/settings",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"settings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/devices",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"token\": \"token_test_device_123\",\r\n  \"platform\": \"android\",\r\n  \"device_id\": \"my-device-001\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:4011/api/v1/devices",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"devices"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "api/v1/devices/my-device-001",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:4011/api/v1/devices/my-device-001",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"devices",
+						"my-device-001"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/notifications/settings",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "PATCH",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"mute_all\": false,\r\n  \"message_notifications\": true,\r\n  \"group_notifications\": true,\r\n  \"contact_notifications\": true\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:4011/api/v1/notifications/settings",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"notifications",
+						"settings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/conversations/11111111-1111-1111-1111-111111111111/mute",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"mute_all\": false,\r\n  \"message_notifications\": true,\r\n  \"group_notifications\": true,\r\n  \"contact_notifications\": true\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:4011/api/v1/conversations/11111111-1111-1111-1111-111111111111/mute",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"conversations",
+						"11111111-1111-1111-1111-111111111111",
+						"mute"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "/api/v1/conversations/11111111-1111-1111-1111-111111111111/mute",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImRldi1raWQtMSJ9.eyJzdWIiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJpc3MiOiJ3aGlzcHItYXV0aCIsImF1ZCI6IndoaXNwci1ub3RpZmljYXRpb24iLCJleHAiOjE4OTM0NTYwMDB9.d4oG6Ngs_OfzzOF-BNxTiNLJpNA2rf689Zm4WgbYgVE",
+							"type": "string"
+						}
+					]
+				},
+				"method": "DELETE",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"mute_all\": false,\r\n  \"message_notifications\": true,\r\n  \"group_notifications\": true,\r\n  \"contact_notifications\": true\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:4011/api/v1/conversations/11111111-1111-1111-1111-111111111111/mute",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "4011",
+					"path": [
+						"api",
+						"v1",
+						"conversations",
+						"11111111-1111-1111-1111-111111111111",
+						"mute"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

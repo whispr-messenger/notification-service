@@ -72,6 +72,17 @@ config :whispr_notification, :services,
   }
 
 # ======================================================================
+# JWT auth (JWKS)
+# ======================================================================
+
+config :whispr_notification, :jwt,
+  jwks_url: System.get_env("JWT_JWKS_URL", "http://auth-service/auth/.well-known/jwks.json"),
+  issuer: System.get_env("JWT_ISSUER"),
+  audience: System.get_env("JWT_AUDIENCE"),
+  allowed_algs: String.split(System.get_env("JWT_ALLOWED_ALGS", "ES256"), ",", trim: true),
+  jwks_refresh_interval_ms: String.to_integer(System.get_env("JWT_JWKS_REFRESH_INTERVAL_MS", "300000"))
+
+# ======================================================================
 # FCM / APNS (Pigeon / Fcmex)
 # ======================================================================
 
