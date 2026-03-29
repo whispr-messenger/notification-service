@@ -7,7 +7,7 @@ import Config
 config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   http: [
     ip: {0, 0, 0, 0},
-    port: String.to_integer(System.get_env("HTTP_PORT", "4011"))
+    port: String.to_integer(System.get_env("PORT", "4011"))
   ],
   url: [
     host: System.get_env("PHX_HOST", "localhost"),
