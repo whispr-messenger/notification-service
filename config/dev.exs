@@ -1,7 +1,7 @@
 import Config
 
 config :whispr_notification, WhisprNotificationsWeb.Endpoint,
-  http: [ip: {0, 0, 0, 0}, port: 4002],
+  http: [ip: {0, 0, 0, 0}, port: String.to_integer(System.get_env("PORT", "4002"))],
   check_origin: false,
   code_reloader: false,
   debug_errors: true,
