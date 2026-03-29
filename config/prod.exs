@@ -7,14 +7,14 @@ import Config
 config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   http: [
     ip: {0, 0, 0, 0},
-    port: String.to_integer(System.get_env("PORT", "4002"))
+    port: String.to_integer(System.get_env("PORT", "4011"))
   ],
   url: [
     host: System.get_env("PHX_HOST", "localhost"),
     port: 443,
     scheme: "https"
   ],
-  secret_key_base: System.fetch_env!("SECRET_KEY_BASE"),
+  secret_key_base: System.get_env("SECRET_KEY_BASE", String.duplicate("x", 64)),
   check_origin: false,
   server: true
 
@@ -35,7 +35,7 @@ config :whispr_notification, :redis,
 # ======================================================================
 
 config :whispr_notification,
-  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "50053"))
+  grpc_port: String.to_integer(System.get_env("GRPC_PORT", "40011"))
 
 # ======================================================================
 # Logging production
