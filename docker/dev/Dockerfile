@@ -13,18 +13,20 @@ RUN apt-get update && \
       git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install hex and rebar with cache
-RUN --mount=type=cache,target=/root/.hex \
-    --mount=type=cache,target=/root/.mix \
-    mix local.hex --force && \
+RUN mix local.hex --force && \
     mix local.rebar --force
 
 # Copy mix files first pour le cache deps
 COPY mix.exs mix.lock ./
 
-RUN --mount=type=cache,target=/root/.hex \
-    --mount=type=cache,target=/root/.mix \
-    mix deps.get
+RUN MIX_ENV=dev mix deps.get
+
+RUN MIX_ENV=dev mix deps.compile
+
+COPY config ./config
+COPY lib ./lib
+
+RUN MIX_ENV=dev mix compile
 
 # Entrypoint dev
 COPY ./docker/dev/entrypoint.sh /tmp/entrypoint.sh
