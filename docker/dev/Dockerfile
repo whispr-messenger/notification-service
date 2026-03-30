@@ -2,16 +2,9 @@ FROM elixir:1.19
 
 WORKDIR /app
 
-# Paquets système nécessaires en dev
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      curl \
-      tini \
-      inotify-tools \
-      build-essential \
-      postgresql-client \
-      git \
-    && rm -rf /var/lib/apt/lists/*
+ENV HEX_HTTP_TIMEOUT=120
+ENV HEX_HTTP_CONCURRENCY=1
+ENV HEX_HTTP_RETRIES=20
 
 RUN mix local.hex --force && \
     mix local.rebar --force
@@ -32,4 +25,4 @@ RUN MIX_ENV=dev mix compile
 COPY ./docker/dev/entrypoint.sh /tmp/entrypoint.sh
 RUN chmod +x /tmp/entrypoint.sh
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/bin/bash", "/tmp/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/tmp/entrypoint.sh"]

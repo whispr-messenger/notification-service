@@ -18,4 +18,25 @@ defmodule WhisprNotificationsWeb.Router do
     # Health check simple
     get "/v1/health", HealthController, :live
   end
+
+  scope "/notification/api", WhisprNotificationsWeb do
+    pipe_through :api
+
+    resources "/settings", SettingsController, only: [:show, :update]
+    post "/conversations/:conversation_id/mute", MuteController, :mute
+    delete "/conversations/:conversation_id/mute", MuteController, :unmute
+    get "/v1/health", HealthController, :live
+  end
+
+  scope "/", WhisprNotificationsWeb do
+    pipe_through :api
+
+    get "/metrics", HealthController, :metrics
+  end
+
+  scope "/notification", WhisprNotificationsWeb do
+    pipe_through :api
+
+    get "/metrics", HealthController, :metrics
+  end
 end
