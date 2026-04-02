@@ -22,3 +22,6 @@ config :whispr_notification,
 
 # Quieter logging in tests
 config :logger, level: :warning
+
+# Ne pas contacter auth-service au démarrage : les tests JWKS utilisent un cache mocké.
+config :whispr_notification, :jwt, jwks_url: ""
