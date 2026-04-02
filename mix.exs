@@ -48,6 +48,7 @@ defmodule WhisprNotification.MixProject do
       {:jason, "~> 1.4"},
       {:poison, "~> 6.0"},
       {:req, "~> 0.5"},
+      {:joken, "~> 2.6"},
       {:elixir_uuid, "~> 1.2"},
       {:pigeon, "~> 2.0"},
       {:fcmex, "~> 0.6"},
