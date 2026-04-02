@@ -9,7 +9,7 @@ defmodule WhisprNotificationsWeb.Router do
     pipe_through :api
 
     # Gestion des réglages de notifications
-    resources "/settings", SettingsController, only: [:show, :update]
+    resources "/settings", SettingsController, only: [:show, :update], param: "user_id"
 
     # Mute / unmute conversation
     post "/conversations/:conversation_id/mute", MuteController, :mute
