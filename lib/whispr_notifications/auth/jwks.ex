@@ -5,7 +5,8 @@ defmodule WhisprNotifications.Auth.Jwks do
   Parses a JWKS JSON document into a map of `kid => %JOSE.JWK{}` (public keys only).
   Only EC P-256 (`crv` P-256) keys with a `kid` are loaded.
   """
-  @spec keys_from_json(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
+  @spec keys_from_json(String.t()) ::
+          {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
   def keys_from_json(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, %{"keys" => keys}} when is_list(keys) -> build_key_map(keys)
@@ -41,7 +42,8 @@ defmodule WhisprNotifications.Auth.Jwks do
   @doc """
   Fetches JWKS from `url` (HTTP GET). Returns the same map shape as `keys_from_json/1`.
   """
-  @spec fetch_keys(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
+  @spec fetch_keys(String.t()) ::
+          {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
   def fetch_keys(url) when is_binary(url) do
     case Req.get(url,
            receive_timeout: 15_000,
