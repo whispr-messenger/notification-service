@@ -26,5 +26,6 @@ defmodule WhisprNotificationsWeb.Router do
   scope "/api", WhisprNotificationsWeb do
     pipe_through [:api, :jwt_authenticated]
     get "/v1/auth-check", AuthCheckController, :show
+    post "/v1/notifications", NotificationsController, :create
   end
 end
