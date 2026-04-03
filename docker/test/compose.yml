@@ -38,7 +38,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    command: /bin/bash -c "mix deps.get && mix test && mix coveralls.html && mix coveralls.xml"
+    command: /bin/bash -c "mix deps.get && mix test && mix coveralls.html && mix coveralls.xml && mix coveralls.cobertura"
 
 volumes:
   test-deps:

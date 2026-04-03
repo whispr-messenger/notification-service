@@ -8,9 +8,6 @@
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
 
-ARG SECRET_KEY_BASE
-ENV SECRET_KEY_BASE=${SECRET_KEY_BASE}
-
 # Install build dependencies
 RUN apk add --no-cache \
     build-base \
@@ -53,11 +50,14 @@ RUN mix release
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS runtime
 
-# Install runtime dependencies only
+# Install runtime dependencies only (OpenSSL 3 via package openssl — pas de openssl1.1-compat sur Alpine 3.19+)
 RUN apk add --no-cache \
+    libstdc++ \
+    openssl \
+    ncurses-libs \
+    libgcc \
     curl \
-    bash \
-    openssl
+    bash
 
 # Create non-root user for security
 RUN addgroup -g 1000 whispr && \
@@ -66,8 +66,8 @@ RUN addgroup -g 1000 whispr && \
 # Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
-    HTTP_PORT=4011 \
-    GRPC_PORT=40011
+    PORT=4002 \
+    GRPC_PORT=50052
 
 WORKDIR /app
 
@@ -76,12 +76,12 @@ COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notificati
 
 USER whispr
 
-# Expose ports (HTTP + gRPC)
-EXPOSE 4011 40011
+# HTTP (PORT) + gRPC (GRPC_PORT)
+EXPOSE 4002 50052
 
-# Health check
+# Health check (route Phoenix : GET /api/v1/health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${HTTP_PORT:-4011}/api/v1/health?type=live || exit 1
+    CMD curl -fsS http://localhost:4002/api/v1/health || exit 1
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \

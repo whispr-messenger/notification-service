@@ -17,7 +17,8 @@ defmodule WhisprNotification.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test,
-        "coveralls.xml": :test
+        "coveralls.xml": :test,
+        "coveralls.cobertura": :test
       ]
     ]
   end
@@ -58,7 +59,7 @@ defmodule WhisprNotification.MixProject do
       {:excoveralls, "~> 0.18", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:phoenix_swagger, "~> 0.8"},
+      {:phoenix_swagger, "~> 0.8"}
     ]
   end
 
