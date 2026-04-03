@@ -66,9 +66,28 @@ config :whispr_notification, :workers,
 # Inter-service communication
 # ======================================================================
 
+parse_port = fn keys, default ->
+  value =
+    keys
+    |> Enum.find_value(fn key -> System.get_env(key) end)
+    |> Kernel.||(default)
+
+  case Integer.parse(value) do
+    {port, ""} ->
+      port
+
+    _ ->
+      case URI.parse(value) do
+        %URI{port: port} when is_integer(port) -> port
+        _ -> String.to_integer(default)
+      end
+  end
+end
+
 config :whispr_notification, :services,
   auth_service: %{
     host: System.get_env("AUTH_SERVICE_HOST", "auth-service"),
+<<<<<<< Updated upstream
     port: parse_port.(System.get_env("AUTH_SERVICE_PORT", "50056"))
   },
   messaging_service: %{
@@ -78,6 +97,18 @@ config :whispr_notification, :services,
   user_service: %{
     host: System.get_env("USER_SERVICE_HOST", "user-service"),
     port: parse_port.(System.get_env("USER_SERVICE_PORT", "50055"))
+=======
+    port: parse_port.(["AUTH_SERVICE_GRPC_PORT", "AUTH_SERVICE_SERVICE_PORT_GRPC"], "50056")
+  },
+  messaging_service: %{
+    host: System.get_env("MESSAGING_SERVICE_HOST", "messaging-service"),
+    port:
+      parse_port.(["MESSAGING_SERVICE_GRPC_PORT", "MESSAGING_SERVICE_SERVICE_PORT_GRPC"], "50051")
+  },
+  user_service: %{
+    host: System.get_env("USER_SERVICE_HOST", "user-service"),
+    port: parse_port.(["USER_SERVICE_GRPC_PORT", "USER_SERVICE_SERVICE_PORT_GRPC"], "50055")
+>>>>>>> Stashed changes
   }
 
 # ======================================================================
