@@ -5,7 +5,7 @@ defmodule WhisprNotificationsWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/api", WhisprNotificationsWeb do
+  scope "/notification/api", WhisprNotificationsWeb do
     pipe_through :api
 
     # Gestion des réglages de notifications

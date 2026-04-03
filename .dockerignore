@@ -1,0 +1,10 @@
+.git
+.github
+_build
+deps
+documentation
+test
+k8s
+docker/prod
+docker/test
+*.md
