@@ -2,24 +2,13 @@ defmodule WhisprNotifications.Auth.JwksCacheTest do
   use ExUnit.Case, async: true
 
   alias WhisprNotifications.Auth.JwksCache
+  alias WhisprNotifications.Test.ES256JwtFixtures
 
   test "charge le JWKS (HTTP mock) et résout les clés par kid" do
-    kid = "kid-cache-test"
-    secret = "test-secret-jwks-cache-1234567890"
+    kid = ES256JwtFixtures.primary_kid()
+    jwks_key = ES256JwtFixtures.primary_jwks_public_entry()
 
-    payload = %{
-      "keys" => [
-        %{
-          "kty" => "oct",
-          "kid" => kid,
-          "alg" => "HS256",
-          "use" => "sig",
-          "k" => Base.url_encode64(secret, padding: false)
-        }
-      ]
-    }
-
-    http_get_fun = fn _url -> {:ok, %{status: 200, body: payload}} end
+    http_get_fun = fn _url -> {:ok, %{status: 200, body: %{"keys" => [jwks_key]}}} end
     server = :jwks_cache_test
 
     start_supervised!(
