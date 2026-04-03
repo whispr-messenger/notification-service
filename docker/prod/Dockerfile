@@ -1,93 +1,93 @@
-    # =============================================================================
-    # Whispr Notification Service - Dockerfile
-    # Multi-stage build for production-ready Elixir application
-    # =============================================================================
+# =============================================================================
+# Whispr Notification Service - Dockerfile
+# Multi-stage build for production-ready Elixir application
+# =============================================================================
 
-    # -----------------------------------------------------------------------------
-    # STAGE 1: Build
-    # -----------------------------------------------------------------------------
-    FROM elixir:1.19-alpine AS builder
+# -----------------------------------------------------------------------------
+# STAGE 1: Build
+# -----------------------------------------------------------------------------
+FROM elixir:1.19-alpine AS builder
 
-    # Install build dependencies
-    RUN apk add --no-cache \
-        build-base \
-        git \
-        curl \
-        openssl-dev
+# Install build dependencies
+RUN apk add --no-cache \
+    build-base \
+    git \
+    curl \
+    openssl-dev
 
-    # Set environment variables
-    ENV MIX_ENV=prod \
-        LANG=C.UTF-8
+# Set environment variables
+ENV MIX_ENV=prod \
+    LANG=C.UTF-8
 
-    # Create app directory
-    WORKDIR /app
+# Create app directory
+WORKDIR /app
 
-    # Install hex + rebar
-    RUN mix local.hex --force && \
-        mix local.rebar --force
+# Install hex + rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force
 
-    # Copy dependency files first (for caching)
-    COPY mix.exs mix.lock ./
-    COPY config config
+# Copy dependency files first (for caching)
+COPY mix.exs mix.lock ./
+COPY config config
 
-    # Install dependencies
-    RUN --mount=type=cache,target=/root/.hex \
-        --mount=type=cache,target=/root/.mix \
-        mix deps.get --only prod && \
-        mix deps.compile
+# Install dependencies
+RUN --mount=type=cache,target=/root/.hex \
+    --mount=type=cache,target=/root/.mix \
+    mix deps.get --only prod && \
+    mix deps.compile
 
-    # Copy application code
-    COPY lib lib
+# Copy application code
+COPY lib lib
 
-    # Compile the application
-    RUN mix compile
+# Compile the application
+RUN mix compile
 
-    # Build release
-    RUN mix release
+# Build release
+RUN mix release
 
-    # -----------------------------------------------------------------------------
-    # STAGE 2: Runtime
-    # -----------------------------------------------------------------------------
-    FROM elixir:1.19-alpine AS runtime
+# -----------------------------------------------------------------------------
+# STAGE 2: Runtime
+# -----------------------------------------------------------------------------
+FROM elixir:1.19-alpine AS runtime
 
-    # Install runtime dependencies only (OpenSSL 3 via package openssl — pas de openssl1.1-compat sur Alpine 3.19+)
-    RUN apk add --no-cache \
-        libstdc++ \
-        openssl \
-        ncurses-libs \
-        libgcc \
-        curl \
-        bash
+# Install runtime dependencies only (OpenSSL 3 via package openssl — pas de openssl1.1-compat sur Alpine 3.19+)
+RUN apk add --no-cache \
+    libstdc++ \
+    openssl \
+    ncurses-libs \
+    libgcc \
+    curl \
+    bash
 
-    # Create non-root user for security
-    RUN addgroup -g 1000 whispr && \
-        adduser -u 1000 -G whispr -s /bin/sh -D whispr
+# Create non-root user for security
+RUN addgroup -g 1000 whispr && \
+    adduser -u 1000 -G whispr -s /bin/sh -D whispr
 
-    # Set environment variables
-    ENV MIX_ENV=prod \
-        LANG=C.UTF-8 \
-        PORT=4002 \
-        GRPC_PORT=50052
+# Set environment variables
+ENV MIX_ENV=prod \
+    LANG=C.UTF-8 \
+    PORT=4002 \
+    GRPC_PORT=50052
 
-    WORKDIR /app
+WORKDIR /app
 
-    # Copy release from builder
-    COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notification ./
+# Copy release from builder
+COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notification ./
 
-    USER whispr
+USER whispr
 
-    # HTTP (PORT) + gRPC (GRPC_PORT)
-    EXPOSE 4002 50052
+# HTTP (PORT) + gRPC (GRPC_PORT)
+EXPOSE 4002 50052
 
-    # Health check (route Phoenix : GET /api/v1/health)
-    HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-        CMD curl -fsS http://localhost:4002/api/v1/health || exit 1
+# Health check (route Phoenix : GET /api/v1/health)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:4002/api/v1/health || exit 1
 
-    # OCI Labels
-    LABEL org.opencontainers.image.title="Whispr Notification Service" \
-        org.opencontainers.image.description="Notification service for Whispr Messenger" \
-        org.opencontainers.image.vendor="Whispr" \
-        org.opencontainers.image.version="0.1.0"
+# OCI Labels
+LABEL org.opencontainers.image.title="Whispr Notification Service" \
+    org.opencontainers.image.description="Notification service for Whispr Messenger" \
+    org.opencontainers.image.vendor="Whispr" \
+    org.opencontainers.image.version="0.1.0"
 
-    # Start the application
-    CMD ["bin/whispr_notification", "start"]
+# Start the application
+CMD ["bin/whispr_notification", "start"]
