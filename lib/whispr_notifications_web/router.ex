@@ -9,6 +9,10 @@ defmodule WhisprNotificationsWeb.Router do
     plug(WhisprNotificationsWeb.Plugs.Authenticate)
   end
 
+  pipeline :jwt_authenticated do
+    plug WhisprNotificationsWeb.Plugs.Authenticate
+  end
+
   scope "/api", WhisprNotificationsWeb do
     pipe_through(:api)
 
@@ -27,5 +31,10 @@ defmodule WhisprNotificationsWeb.Router do
     pipe_through([:api, :jwt_authenticated])
     get("/v1/auth-check", AuthCheckController, :show)
     post("/v1/notifications", NotificationsController, :create)
+  end
+
+  scope "/api", WhisprNotificationsWeb do
+    pipe_through [:api, :jwt_authenticated]
+    get "/v1/auth-check", AuthCheckController, :show
   end
 end

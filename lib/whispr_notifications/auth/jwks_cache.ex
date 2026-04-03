@@ -29,6 +29,7 @@ defmodule WhisprNotifications.Auth.JwksCache do
 
     case load_keys(opts, jwks_url, http_get_fun) do
       {:ok, keys} ->
+<<<<<<< WHISPR-552-notification
         state = %{
           keys: keys,
           refresh_interval_ms: refresh_ms,
@@ -36,6 +37,9 @@ defmodule WhisprNotifications.Auth.JwksCache do
           http_get_fun: http_get_fun
         }
 
+=======
+        state = %{keys: keys, refresh_interval_ms: refresh_ms, jwks_url: jwks_url, http_get_fun: http_get_fun}
+>>>>>>> main
         {:ok, state}
 
       {:error, reason} ->

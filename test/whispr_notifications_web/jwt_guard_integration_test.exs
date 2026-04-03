@@ -24,9 +24,13 @@ defmodule WhisprNotificationsWeb.JwtGuardIntegrationTest do
       jwks_cache_server: :jwks_cache_integration_test
     )
 
+<<<<<<< WHISPR-552-notification
     start_supervised!(
       {JwksCache, [name: :jwks_cache_integration_test, http_get_fun: http_get_fun]}
     )
+=======
+    start_supervised!({JwksCache, [name: :jwks_cache_integration_test, http_get_fun: http_get_fun]})
+>>>>>>> main
 
     token = sign_es256_token(ES256JwtFixtures.primary_private_jwk(), kid)
     {:ok, token: token}
