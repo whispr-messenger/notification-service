@@ -5,6 +5,10 @@ defmodule WhisprNotificationsWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :jwt_authenticated do
+    plug WhisprNotificationsWeb.Plugs.Authenticate
+  end
+
   scope "/api", WhisprNotificationsWeb do
     pipe_through :api
 
@@ -17,5 +21,10 @@ defmodule WhisprNotificationsWeb.Router do
 
     # Health check simple
     get "/v1/health", HealthController, :live
+  end
+
+  scope "/api", WhisprNotificationsWeb do
+    pipe_through [:api, :jwt_authenticated]
+    get "/v1/auth-check", AuthCheckController, :show
   end
 end
