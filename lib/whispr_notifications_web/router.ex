@@ -18,4 +18,10 @@ defmodule WhisprNotificationsWeb.Router do
     # Health check simple
     get "/v1/health", HealthController, :live
   end
+
+  scope "/api", WhisprNotificationsWeb do
+    pipe_through [:api, :jwt_authenticated]
+    get "/v1/auth-check", AuthCheckController, :show
+    post "/v1/notifications", NotificationsController, :create
+  end
 end
