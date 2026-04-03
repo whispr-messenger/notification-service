@@ -5,6 +5,10 @@ defmodule WhisprNotificationsWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :jwt_authenticated do
+    plug WhisprNotificationsWeb.Plugs.Authenticate
+  end
+
   scope "/api", WhisprNotificationsWeb do
     pipe_through :api
 
