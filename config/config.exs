@@ -46,7 +46,7 @@ config :whispr_notification, :redis,
 # ======================================================================
 
 config :whispr_notification,
-  grpc_port: parse_port.(System.get_env("GRPC_PORT", "50053"))
+  grpc_port: parse_port.(System.get_env("GRPC_PORT", "50052"))
 
 # ======================================================================
 # Notifications & workers
@@ -87,28 +87,16 @@ end
 config :whispr_notification, :services,
   auth_service: %{
     host: System.get_env("AUTH_SERVICE_HOST", "auth-service"),
-<<<<<<< Updated upstream
-    port: parse_port.(System.get_env("AUTH_SERVICE_PORT", "50056"))
-  },
-  messaging_service: %{
-    host: System.get_env("MESSAGING_SERVICE_HOST", "messaging-service"),
-    port: parse_port.(System.get_env("MESSAGING_SERVICE_PORT", "50052"))
-  },
-  user_service: %{
-    host: System.get_env("USER_SERVICE_HOST", "user-service"),
-    port: parse_port.(System.get_env("USER_SERVICE_PORT", "50055"))
-=======
     port: parse_port.(["AUTH_SERVICE_GRPC_PORT", "AUTH_SERVICE_SERVICE_PORT_GRPC"], "50056")
   },
   messaging_service: %{
     host: System.get_env("MESSAGING_SERVICE_HOST", "messaging-service"),
     port:
-      parse_port.(["MESSAGING_SERVICE_GRPC_PORT", "MESSAGING_SERVICE_SERVICE_PORT_GRPC"], "50051")
+      parse_port.(["MESSAGING_SERVICE_GRPC_PORT", "MESSAGING_SERVICE_SERVICE_PORT_GRPC"], "50052")
   },
   user_service: %{
     host: System.get_env("USER_SERVICE_HOST", "user-service"),
     port: parse_port.(["USER_SERVICE_GRPC_PORT", "USER_SERVICE_SERVICE_PORT_GRPC"], "50055")
->>>>>>> Stashed changes
   }
 
 # ======================================================================

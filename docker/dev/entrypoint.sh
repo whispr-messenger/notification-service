@@ -3,12 +3,5 @@ set -e
 
 cd /app
 
-<<<<<<< Updated upstream
 MIX_ENV=dev mix ecto.migrate
 exec env MIX_ENV=dev mix phx.server
-=======
-# Run database migrations
-mix ecto.migrate
-
-mix phx.server
->>>>>>> Stashed changes
