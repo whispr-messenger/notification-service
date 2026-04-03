@@ -22,37 +22,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Même commit que les tests : le CLI Codecov associe le réseau de fichiers Git aux chemins du rapport.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref || github.ref }}
+
+      # Extraire l’artifact dans un sous-dossier dédié (évite les collisions avec le dépôt).
       - name: Download coverage artifact
         uses: actions/download-artifact@v4
         with:
           name: coverage
+          path: coverage-artifact
 
-      - name: Prepare coverage file for Codecov
-        id: coverage_path
+      - name: Locate coverage report for Codecov
+        id: coverage
+        shell: bash
         run: |
-          # L'artifact est extrait dans un dossier nommé "coverage" (nom de l'artifact)
-          # Codecov supporte mieux Cobertura (coverage.xml) puis excoveralls.xml
+          set -euo pipefail
+          echo "=== Arborescence de l’artifact ==="
+          find coverage-artifact -type f 2>/dev/null | head -80 || true
+
+          # Cobertura (mix coveralls.cobertura → cover/coverage.xml) est mieux supporté qu’ExCoveralls XML.
           COV_FILE=""
-          for path in coverage/coverage.xml coverage/cover/coverage.xml cover/coverage.xml \
-                      coverage/excoveralls.xml coverage/cover/excoveralls.xml cover/excoveralls.xml excoveralls.xml; do
-            if [ -f "$path" ]; then
-              COV_FILE="$path"
-              break
+          if [ -f coverage-artifact/coverage.xml ]; then
+            COV_FILE="coverage-artifact/coverage.xml"
+          elif [ -f coverage-artifact/cover/coverage.xml ]; then
+            COV_FILE="coverage-artifact/cover/coverage.xml"
+          else
+            COV_FILE="$(find coverage-artifact -type f -name 'coverage.xml' | head -1 || true)"
+          fi
+
+          if [ -z "$COV_FILE" ] || [ ! -f "$COV_FILE" ]; then
+            if [ -f coverage-artifact/excoveralls.xml ]; then
+              COV_FILE="coverage-artifact/excoveralls.xml"
+            elif [ -f coverage-artifact/cover/excoveralls.xml ]; then
+              COV_FILE="coverage-artifact/cover/excoveralls.xml"
+            else
+              COV_FILE="$(find coverage-artifact -type f -name 'excoveralls.xml' | head -1 || true)"
             fi
-          done
-          if [ -z "$COV_FILE" ]; then
-            echo "Aucun rapport de couverture trouvé. Fichiers XML présents :"
-            find . -type f -name "*.xml" 2>/dev/null
+          fi
+
+          if [ -z "$COV_FILE" ] || [ ! -f "$COV_FILE" ]; then
+            echo "Aucun coverage.xml ni excoveralls.xml trouvé sous coverage-artifact."
+            find . -type f -name '*.xml' 2>/dev/null | head -50
             exit 1
           fi
-          echo "path=$COV_FILE" >> $GITHUB_OUTPUT
-          echo "Fichier de couverture trouvé: $COV_FILE"
+
+          echo "Rapport utilisé pour Codecov: $COV_FILE"
+          echo "file=$COV_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ${{ steps.coverage_path.outputs.path }}
+          files: ${{ steps.coverage.outputs.file }}
+          disable_search: true
+          root_dir: ${{ github.workspace }}
           flags: unittests
           name: notification-service-coverage
           fail_ci_if_error: true
