@@ -48,7 +48,7 @@ services:
           memory: ${MEMORY_RESERVATION:-512M}
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${PORT:-4002}/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/api/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
