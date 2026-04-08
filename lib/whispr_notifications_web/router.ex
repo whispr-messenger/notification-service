@@ -20,12 +20,12 @@ defmodule WhisprNotificationsWeb.Router do
     delete("/conversations/:conversation_id/mute", MuteController, :unmute)
 
     # Health check simple
-    get("/v1/health", HealthController, :live)
+    get("/health", HealthController, :live)
   end
 
   scope "/api", WhisprNotificationsWeb do
     pipe_through([:api, :jwt_authenticated])
-    get("/v1/auth-check", AuthCheckController, :show)
-    post("/v1/notifications", NotificationsController, :create)
+    get("/auth-check", AuthCheckController, :show)
+    post("/notifications", NotificationsController, :create)
   end
 end
