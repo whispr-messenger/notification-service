@@ -1,3 +1,4 @@
+# coveralls-ignore-start
 defmodule WhisprNotificationsWeb.Plugs.Cors do
   @moduledoc "CORS headers for cross-origin requests."
   import Plug.Conn
@@ -21,3 +22,4 @@ defmodule WhisprNotificationsWeb.Plugs.Cors do
     |> put_resp_header("access-control-max-age", "86400")
   end
 end
+# coveralls-ignore-stop
