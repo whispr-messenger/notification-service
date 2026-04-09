@@ -118,17 +118,17 @@ jobs:
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
           # Update the deployment manifest in the infrastructure repository
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" k8s/whispr/prod/notification-service/deployment.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" argocd/k8s/whispr/notification-service/deployment.yaml
 
           # Update the migration job manifest so PreSync always uses the same image
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" k8s/whispr/prod/notification-service/migration-job.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" argocd/k8s/whispr/notification-service/migration-job.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' k8s/whispr/prod/notification-service/deployment.yaml
+          yq '.spec.template.spec.containers[0].image' argocd/k8s/whispr/notification-service/deployment.yaml
           echo "Updated migration job manifest:"
-          yq '.spec.template.spec.containers[0].image' k8s/whispr/prod/notification-service/migration-job.yaml
+          yq '.spec.template.spec.containers[0].image' argocd/k8s/whispr/notification-service/migration-job.yaml
 
       - name: Commit and push changes
         run: |
@@ -136,7 +136,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Check if there are changes to commit
-          if git diff --quiet k8s/whispr/prod/notification-service/deployment.yaml k8s/whispr/prod/notification-service/migration-job.yaml; then
+          if git diff --quiet argocd/k8s/whispr/notification-service/deployment.yaml argocd/k8s/whispr/notification-service/migration-job.yaml; then
             echo "No changes to commit"
             exit 0
           fi
@@ -151,7 +151,7 @@ jobs:
             COMMIT_MSG="🔧 chore(deploy/notification-service): update image to ${COMMIT_SHA:0:7}"
           fi
 
-          git add k8s/whispr/prod/notification-service/deployment.yaml k8s/whispr/prod/notification-service/migration-job.yaml
+          git add argocd/k8s/whispr/notification-service/deployment.yaml argocd/k8s/whispr/notification-service/migration-job.yaml
           git commit -m "${COMMIT_MSG}"
 
           git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git main
