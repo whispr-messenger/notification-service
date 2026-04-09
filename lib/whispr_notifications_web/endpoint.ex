@@ -14,7 +14,5 @@ defmodule WhisprNotificationsWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
 
-  plug WhisprNotificationsWeb.Plugs.Cors
-
   plug WhisprNotificationsWeb.Router
 end
