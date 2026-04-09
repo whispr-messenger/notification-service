@@ -56,8 +56,8 @@ services:
       - build:/app/_build
     ports:
       - "8080:${HTTP_PORT}"
-      - "8443:${HTTPS_PORT}"
-      - "50052:50052"
+      - "8444:${HTTPS_PORT}"
+      - "50053:50052"
     networks:
       - whispr-notification-network
       - whispr-common-network
