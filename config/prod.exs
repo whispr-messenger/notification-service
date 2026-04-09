@@ -54,18 +54,13 @@ config :logger,
 # ======================================================================
 
 config :whispr_notification, :notifications,
-  retention_days:
-    String.to_integer(System.get_env("NOTIF_RETENTION_DAYS", "90")),
-  cleanup_batch_size:
-    String.to_integer(System.get_env("NOTIF_CLEANUP_BATCH_SIZE", "1000"))
+  retention_days: String.to_integer(System.get_env("NOTIF_RETENTION_DAYS", "90")),
+  cleanup_batch_size: String.to_integer(System.get_env("NOTIF_CLEANUP_BATCH_SIZE", "1000"))
 
 config :whispr_notification, :workers,
-  metrics_interval:
-    String.to_integer(System.get_env("METRICS_INTERVAL_MS", "60000")),
-  cleanup_interval:
-    String.to_integer(System.get_env("CLEANUP_INTERVAL_MS", "43200000")),
-  cache_sync_interval:
-    String.to_integer(System.get_env("CACHE_SYNC_INTERVAL_MS", "600000")),
+  metrics_interval: String.to_integer(System.get_env("METRICS_INTERVAL_MS", "60000")),
+  cleanup_interval: String.to_integer(System.get_env("CLEANUP_INTERVAL_MS", "43200000")),
+  cache_sync_interval: String.to_integer(System.get_env("CACHE_SYNC_INTERVAL_MS", "600000")),
   token_refresh_interval:
     String.to_integer(System.get_env("TOKEN_REFRESH_INTERVAL_MS", "3600000"))
 
