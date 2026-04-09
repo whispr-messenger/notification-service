@@ -47,8 +47,9 @@ jobs:
         run: |
           pwd
           ls -la cover/ || (echo "No cover dir" && exit 1)
-          test -f cover/excoveralls.xml || (echo "excoveralls.xml missing - mix coveralls.xml may have failed" && exit 1)
-          echo "Coverage file OK: cover/excoveralls.xml"
+          test -f cover/cobertura.xml || (echo "cobertura.xml missing - mix coveralls.cobertura may have failed" && exit 1)
+          test -s cover/cobertura.xml || (echo "cobertura.xml is empty" && exit 1)
+          echo "Coverage file OK: cover/cobertura.xml (Codecov)"
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
