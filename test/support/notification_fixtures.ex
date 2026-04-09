@@ -4,9 +4,10 @@ defmodule WhisprNotifications.Test.NotificationFixtures do
   alias WhisprNotifications.Devices.DeviceCache
   alias WhisprNotifications.Notifications.Notification
 
+  # NOTE: Fake tokens for tests only, not real credentials.
   @default_id "notif-test-001"
   @default_user_id "user-test-001"
-  @default_token "apns-token-abc123"
+  @default_token "apns-token-test-abc123"
 
   def build_notification(overrides \\ %{}) do
     defaults = %{
