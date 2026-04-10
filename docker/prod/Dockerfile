@@ -79,9 +79,9 @@ USER whispr
 # HTTP (PORT) + gRPC (GRPC_PORT)
 EXPOSE 4002 50052
 
-# Health check (route Phoenix : GET /api/health)
+# Health check (route Phoenix : GET /api/v1/health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -fsS http://localhost:4002/api/health || exit 1
+    CMD curl -fsS http://localhost:4002/api/v1/health || exit 1
 
 # OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \
