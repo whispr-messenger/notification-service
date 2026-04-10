@@ -4,10 +4,10 @@ defmodule WhisprNotificationsWeb.HealthControllerTest do
 
   alias WhisprNotificationsWeb.Router
 
-  test "GET /api/health returns 200" do
+  test "GET /api/v1/health returns 200" do
     conn =
       :get
-      |> conn("/api/health")
+      |> conn("/api/v1/health")
       |> Router.call([])
 
     assert conn.status == 200
