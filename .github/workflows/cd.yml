@@ -93,7 +93,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: whispr-messenger/infrastructure
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch || 'main' }}
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Update image tag in deployment
@@ -154,4 +154,6 @@ jobs:
           git add k8s/whispr/preprod/notification-service/deployment.yaml k8s/whispr/preprod/notification-service/migration-job.yaml
           git commit -m "${COMMIT_MSG}"
 
-          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git main
+          INFRA_BRANCH="${{ github.event.workflow_run.head_branch || 'main' }}"
+          git pull origin "${INFRA_BRANCH}" --rebase
+          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git HEAD:"${INFRA_BRANCH}"
