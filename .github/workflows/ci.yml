@@ -2,14 +2,14 @@ name: 🚀 CI Pipeline
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, deploy/preprod]
     paths-ignore:
       - 'k8s/**'
       - '**.md'
       - 'documentation/**'
       - '.github/workflows/cd.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, deploy/preprod]
     paths-ignore:
       - 'k8s/**'
       - '**.md'
