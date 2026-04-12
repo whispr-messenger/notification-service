@@ -1,0 +1,13 @@
+{
+  "repoPath": "/home/debian/whispr-messenger/notification-service",
+  "lastCommit": "2f42f1a21d72f8ebc798a7d150671bda3a396598",
+  "indexedAt": "2026-04-09T13:30:40.465Z",
+  "stats": {
+    "files": 85,
+    "nodes": 392,
+    "edges": 382,
+    "communities": 0,
+    "processes": 0,
+    "embeddings": 0
+  }
+}
