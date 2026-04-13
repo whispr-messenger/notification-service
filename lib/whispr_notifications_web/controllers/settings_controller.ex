@@ -3,8 +3,8 @@ defmodule WhisprNotificationsWeb.SettingsController do
 
   alias WhisprNotifications.Preferences.Manager
 
-  # GET /api/settings/:user_id
-  def show(conn, %{"user_id" => user_id}) do
+  # GET /api/settings/:id
+  def show(conn, %{"id" => user_id}) do
     with {:ok, user_settings} <- Manager.get_user_settings(user_id) do
       json(conn, %{
         user_id: user_settings.user_id,
@@ -20,9 +20,9 @@ defmodule WhisprNotificationsWeb.SettingsController do
     end
   end
 
-  # PUT /api/settings/:user_id
+  # PUT /api/settings/:id
   # Pour l’instant on renvoie du stub, tu brancheras sur ton stockage réel
-  def update(conn, %{"user_id" => user_id} = params) do
+  def update(conn, %{"id" => user_id} = params) do
     # TODO: persister les settings et renvoyer le nouvel état
     _ = {user_id, params}
     send_resp(conn, 204, "")
