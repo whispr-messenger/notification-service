@@ -144,17 +144,20 @@ jobs:
             yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/production/notification-service/deployment.yaml
             yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/preprod/notification-service/deployment.yaml
 
-            # Update migration-job in prod and preprod only (NOT production)
-            if [ -f k8s/whispr/prod/notification-service/migration-job.yaml ]; then
-              yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/prod/notification-service/migration-job.yaml
-            fi
-            yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/preprod/notification-service/migration-job.yaml
+            # Update migration-job only if it exists
+            for DIR in prod preprod; do
+              if [ -f "k8s/whispr/${DIR}/notification-service/migration-job.yaml" ]; then
+                yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "k8s/whispr/${DIR}/notification-service/migration-job.yaml"
+              fi
+            done
           else
             # Only update preprod on non-main branches
             echo "Updating preprod manifests only..."
 
             yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/preprod/notification-service/deployment.yaml
-            yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/preprod/notification-service/migration-job.yaml
+            if [ -f k8s/whispr/preprod/notification-service/migration-job.yaml ]; then
+              yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' k8s/whispr/preprod/notification-service/migration-job.yaml
+            fi
           fi
 
       - name: Verify update
@@ -174,13 +177,13 @@ jobs:
             else
               echo "No migration-job in prod"
             fi
-            echo "=== preprod migration-job ==="
-            yq '.spec.template.spec.containers[0].image' k8s/whispr/preprod/notification-service/migration-job.yaml
+            if [ -f k8s/whispr/preprod/notification-service/migration-job.yaml ]; then
+              echo "=== preprod migration-job ==="
+              yq '.spec.template.spec.containers[0].image' k8s/whispr/preprod/notification-service/migration-job.yaml
+            fi
           else
             echo "=== preprod deployment ==="
             yq '.spec.template.spec.containers[0].image' k8s/whispr/preprod/notification-service/deployment.yaml
-            echo "=== preprod migration-job ==="
-            yq '.spec.template.spec.containers[0].image' k8s/whispr/preprod/notification-service/migration-job.yaml
           fi
 
       - name: Commit and push changes
@@ -193,12 +196,9 @@ jobs:
 
           # Determine which files to check and add
           if [ "$TRIGGER_BRANCH" = "main" ]; then
-            FILES_TO_ADD="k8s/whispr/prod/notification-service/deployment.yaml k8s/whispr/production/notification-service/deployment.yaml k8s/whispr/preprod/notification-service/deployment.yaml k8s/whispr/preprod/notification-service/migration-job.yaml"
-            if [ -f k8s/whispr/prod/notification-service/migration-job.yaml ]; then
-              FILES_TO_ADD="$FILES_TO_ADD k8s/whispr/prod/notification-service/migration-job.yaml"
-            fi
+            FILES_TO_ADD="k8s/whispr/prod/notification-service/deployment.yaml k8s/whispr/production/notification-service/deployment.yaml k8s/whispr/preprod/notification-service/deployment.yaml"
           else
-            FILES_TO_ADD="k8s/whispr/preprod/notification-service/deployment.yaml k8s/whispr/preprod/notification-service/migration-job.yaml"
+            FILES_TO_ADD="k8s/whispr/preprod/notification-service/deployment.yaml"
           fi
 
           # Check if there are changes to commit
