@@ -18,7 +18,8 @@ defmodule WhisprNotifications.Application do
       {WhisprNotifications.Workers.TokenRefresher, []},
       {WhisprNotifications.Workers.CacheSyncWorker, []},
       {WhisprNotifications.Workers.CleanupWorker, []},
-      {WhisprNotifications.Workers.MetricsWorker, []}
+      {WhisprNotifications.Workers.MetricsWorker, []},
+      {WhisprNotifications.Workers.ModerationSubscriber, []}
     ]
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
