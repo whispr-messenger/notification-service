@@ -1,0 +1,185 @@
+defmodule WhisprNotifications.Events.ModerationEvents do
+  @moduledoc """
+  Handles moderation-related events and converts them to push notifications.
+
+  Subscribes to Redis channels:
+  - whispr:moderation:report_created
+  - whispr:moderation:sanction_applied
+  - whispr:moderation:sanction_lifted
+  - whispr:moderation:appeal_created
+  - whispr:moderation:appeal_resolved
+  - whispr:moderation:threshold_reached
+  """
+
+  require Logger
+
+  alias WhisprNotifications.Notifications
+  alias WhisprNotifications.Notifications.Notification
+
+  @doc "Notify admins when a new report is created."
+  @spec handle_report_created(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_report_created(payload) do
+    result =
+      Notifications.create(%{
+        user_id: "admin",
+        type: :system,
+        title: "New moderation report",
+        body: "A #{payload["category"]} report has been submitted",
+        context: %{
+          "event" => "report_created",
+          "report_id" => payload["report_id"],
+          "reporter_id" => payload["reporter_id"],
+          "reported_user_id" => payload["reported_user_id"],
+          "category" => payload["category"]
+        }
+      })
+
+    Logger.info(
+      "[ModerationEvents] Report created notification sent for report #{payload["report_id"]}"
+    )
+
+    result
+  end
+
+  @doc "Notify a user when a sanction is applied to them."
+  @spec handle_sanction_applied(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_sanction_applied(payload) do
+    title =
+      case payload["sanction_type"] do
+        "mute" -> "You have been muted"
+        "kick" -> "You have been removed from a conversation"
+        "warning" -> "You have received a warning"
+        "temp_ban" -> "Your account has been temporarily suspended"
+        "perm_ban" -> "Your account has been suspended"
+        _ -> "Moderation action taken"
+      end
+
+    body = "Reason: #{payload["reason"] || "Violation of community guidelines"}"
+
+    body =
+      if payload["expires_at"],
+        do: body <> ". Expires: #{payload["expires_at"]}",
+        else: body
+
+    result =
+      Notifications.create(%{
+        user_id: payload["user_id"],
+        type: :system,
+        title: title,
+        body: body,
+        context: %{
+          "event" => "sanction_applied",
+          "sanction_type" => payload["sanction_type"],
+          "reason" => payload["reason"],
+          "expires_at" => payload["expires_at"]
+        }
+      })
+
+    Logger.info("[ModerationEvents] Sanction notification sent to user #{payload["user_id"]}")
+
+    result
+  end
+
+  @doc "Notify a user when a sanction is lifted."
+  @spec handle_sanction_lifted(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_sanction_lifted(payload) do
+    result =
+      Notifications.create(%{
+        user_id: payload["user_id"],
+        type: :system,
+        title: "Sanction lifted",
+        body: "A moderation sanction on your account has been lifted.",
+        context: %{
+          "event" => "sanction_lifted",
+          "sanction_id" => payload["sanction_id"]
+        }
+      })
+
+    Logger.info(
+      "[ModerationEvents] Sanction lifted notification sent to user #{payload["user_id"]}"
+    )
+
+    result
+  end
+
+  @doc "Notify admins when an appeal is created."
+  @spec handle_appeal_created(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_appeal_created(payload) do
+    result =
+      Notifications.create(%{
+        user_id: "admin",
+        type: :system,
+        title: "New appeal submitted",
+        body: "A user has contested a moderation sanction",
+        context: %{
+          "event" => "appeal_created",
+          "appeal_id" => payload["appeal_id"],
+          "user_id" => payload["user_id"],
+          "sanction_id" => payload["sanction_id"]
+        }
+      })
+
+    Logger.info(
+      "[ModerationEvents] Appeal created notification for appeal #{payload["appeal_id"]}"
+    )
+
+    result
+  end
+
+  @doc "Notify the appellant when their appeal is resolved."
+  @spec handle_appeal_resolved(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_appeal_resolved(payload) do
+    {title, body} =
+      case payload["status"] do
+        "accepted" ->
+          {"Appeal accepted", "Your appeal has been accepted and the sanction has been lifted."}
+
+        "rejected" ->
+          {"Appeal rejected",
+           "Your appeal has been reviewed and rejected. #{payload["reviewer_notes"] || ""}"}
+
+        _ ->
+          {"Appeal update", "Your appeal has been reviewed."}
+      end
+
+    result =
+      Notifications.create(%{
+        user_id: payload["user_id"],
+        type: :system,
+        title: title,
+        body: String.trim(body),
+        context: %{
+          "event" => "appeal_resolved",
+          "appeal_id" => payload["appeal_id"],
+          "status" => payload["status"]
+        }
+      })
+
+    Logger.info("[ModerationEvents] Appeal resolved notification for user #{payload["user_id"]}")
+
+    result
+  end
+
+  @doc "Warn admins when a user is approaching the auto-sanction threshold."
+  @spec handle_threshold_warning(map()) :: {:ok, Notification.t()} | {:error, term()}
+  def handle_threshold_warning(payload) do
+    result =
+      Notifications.create(%{
+        user_id: "admin",
+        type: :system,
+        title: "User approaching auto-sanction",
+        body:
+          "User has #{payload["report_count"]} reports — threshold: #{payload["threshold_level"]}",
+        context: %{
+          "event" => "threshold_warning",
+          "reported_user_id" => payload["reported_user_id"],
+          "threshold_level" => payload["threshold_level"],
+          "report_count" => payload["report_count"]
+        }
+      })
+
+    Logger.info("[ModerationEvents] Threshold warning for user #{payload["reported_user_id"]}")
+
+    result
+  end
+end
