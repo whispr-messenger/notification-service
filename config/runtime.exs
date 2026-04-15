@@ -16,6 +16,11 @@ if config_env() == :prod do
     server: true
 
   config :whispr_notification, :redis,
+    sentinels:
+      System.get_env("REDIS_SENTINELS", "redis.redis.svc.cluster.local:26379")
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1),
+    group: System.get_env("REDIS_MASTER_NAME", "mymaster"),
     host: System.get_env("REDIS_HOST", "localhost"),
     port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
     database: String.to_integer(System.get_env("REDIS_DB", "0")),
