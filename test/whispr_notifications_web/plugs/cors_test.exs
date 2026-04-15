@@ -1,5 +1,6 @@
 defmodule WhisprNotificationsWeb.Plugs.CorsTest do
   use ExUnit.Case, async: true
+  import Plug.Conn
   import Plug.Test
 
   alias WhisprNotificationsWeb.Plugs.Cors
