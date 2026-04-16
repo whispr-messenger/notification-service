@@ -24,15 +24,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
 
   @impl true
   def init(_opts) do
-    redis_config = Application.get_env(:whispr_notification, :redis, [])
-
-    redis_opts =
-      [
-        host: Keyword.get(redis_config, :host, "localhost"),
-        port: Keyword.get(redis_config, :port, 6379),
-        database: Keyword.get(redis_config, :database, 0)
-      ]
-      |> maybe_add_password(Keyword.get(redis_config, :password))
+    redis_opts = build_redix_opts()
 
     case Redix.PubSub.start_link(redis_opts) do
       {:ok, pubsub} ->
@@ -121,4 +113,42 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
   defp maybe_add_password(opts, nil), do: opts
   defp maybe_add_password(opts, ""), do: opts
   defp maybe_add_password(opts, password), do: Keyword.put(opts, :password, password)
+
+  # Build Redix options from runtime config. If :sentinels is configured and
+  # non-empty, connect through Redis Sentinel; otherwise fall back to a
+  # standalone host/port connection (dev/docker/local).
+  defp build_redix_opts do
+    redis_config = Application.get_env(:whispr_notification, :redis, [])
+    sentinels = Keyword.get(redis_config, :sentinels, [])
+
+    base =
+      case sentinels do
+        list when is_list(list) and list != [] ->
+          [
+            sentinel: [
+              sentinels: Enum.map(list, &parse_sentinel/1),
+              group: Keyword.get(redis_config, :group, "mymaster")
+            ]
+          ]
+
+        _ ->
+          [
+            host: Keyword.get(redis_config, :host, "localhost"),
+            port: Keyword.get(redis_config, :port, 6379)
+          ]
+      end
+
+    base
+    |> Keyword.put(:database, Keyword.get(redis_config, :database, 0))
+    |> maybe_add_password(Keyword.get(redis_config, :password))
+  end
+
+  defp parse_sentinel(entry) when is_binary(entry) do
+    case String.split(entry, ":", parts: 2) do
+      [host, port] -> [host: host, port: String.to_integer(port)]
+      [host] -> [host: host, port: 26_379]
+    end
+  end
+
+  defp parse_sentinel(entry) when is_list(entry), do: entry
 end
