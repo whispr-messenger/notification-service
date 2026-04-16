@@ -3,6 +3,8 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   Client APNS pour envoyer les notifications vers iOS.
   """
 
+  require Logger
+
   alias WhisprNotifications.Devices.DeviceCache
 
   @callback send(DeviceCache.device(), map()) :: :ok | {:error, term()}
@@ -11,8 +13,24 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
 
   @impl true
   def send(device, payload) do
-    # À implémenter via Pigeon ou un service externe type MongoosePush [web:6][web:12].
-    _ = {device, payload}
+    push_fun = Application.get_env(:whispr_notification, :apns_push_fun, &default_push/2)
+
+    case push_fun.(device, payload) do
+      :ok ->
+        Logger.info("APNS push succeeded for #{device.token}")
+        :ok
+
+      {:error, reason} = err ->
+        Logger.error(
+          "APNS push failed for #{device.token}: #{inspect(reason)}"
+        )
+
+        err
+    end
+  end
+
+  defp default_push(_device, _payload) do
+    # À implémenter via Pigeon ou un service externe type MongoosePush.
     :ok
   end
 end
