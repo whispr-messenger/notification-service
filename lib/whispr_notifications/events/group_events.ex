@@ -8,11 +8,11 @@ defmodule WhisprNotifications.Events.GroupEvents do
   alias WhisprNotifications.Delivery.BatchProcessor
 
   @type group_event :: %{
-          user_id: String.t(),
-          group_id: String.t(),
-          actor_id: String.t(),
-          action: :added | :removed | :role_changed
-        }
+    user_id: String.t(),
+    group_id: String.t(),
+    actor_id: String.t(),
+    action: :added | :removed | :role_changed
+  }
 
   @spec handle(group_event()) :: :ok
   def handle(event) do
