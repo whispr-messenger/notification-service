@@ -26,7 +26,7 @@ defmodule WhisprNotifications.Events.MessageEvents do
         title: "Nouveau message",
         body: event.preview,
         context: %{
-          "message_id" => event.manager_id,
+          "message_id" => event.message_id,
           "sender_id" => event.sender_id
         }
       })

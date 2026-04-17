@@ -1,5 +1,5 @@
 defmodule WhisprNotificationsWeb.SettingsControllerTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
   import Plug.Test
 
   alias WhisprNotificationsWeb.Router

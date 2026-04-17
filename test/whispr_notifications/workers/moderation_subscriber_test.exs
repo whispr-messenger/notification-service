@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Workers.ModerationSubscriber
 

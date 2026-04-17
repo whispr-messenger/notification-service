@@ -1,5 +1,5 @@
 defmodule WhisprNotificationsWeb.NotificationsControllerTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
   import Plug.Test
   import Plug.Conn
 
