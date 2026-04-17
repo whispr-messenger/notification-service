@@ -69,6 +69,33 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
+  test "routes blocked image appeal channels without crashing" do
+    pid = Process.whereis(ModerationSubscriber)
+    assert Process.alive?(pid)
+
+    for channel <- [
+          "whispr:moderation:blocked_image_approved",
+          "whispr:moderation:blocked_image_rejected"
+        ] do
+      payload =
+        Jason.encode!(%{
+          "appealId" => "appeal-1",
+          "userId" => "user-1",
+          "conversationId" => "conv-1",
+          "messageTempId" => "temp-1",
+          "reviewerNotes" => "ok"
+        })
+
+      send(
+        pid,
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: payload}}
+      )
+    end
+
+    Process.sleep(100)
+    assert Process.alive?(pid)
+  end
+
   test "routes to every moderation handler (happy payloads)" do
     pid = Process.whereis(ModerationSubscriber)
 
@@ -94,8 +121,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     for {channel, payload} <- routed do
       send(
         pid,
-        {:redix_pubsub, nil, nil, :message,
-         %{channel: channel, payload: Jason.encode!(payload)}}
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: Jason.encode!(payload)}}
       )
     end
 
