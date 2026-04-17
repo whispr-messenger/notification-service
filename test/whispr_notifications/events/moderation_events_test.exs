@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Events.ModerationEventsTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
 
   alias WhisprNotifications.Events.ModerationEvents
 
