@@ -35,6 +35,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+      - name: Generate ephemeral test credentials
+        run: |
+          {
+            echo "POSTGRES_USER=ci_test_user"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
+            echo "POSTGRES_DB=whispr_notification_test"
+          } >> "$GITHUB_ENV"
+
       - name: Build test image
         run: |
           docker compose -f docker/test/compose.yml build

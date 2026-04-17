@@ -14,7 +14,7 @@ end
 # ======================================================================
 
 config :whispr_notification,
-  ecto_repos: [],
+  ecto_repos: [WhisprNotifications.Repo],
   generators: [binary_id: true]
 
 # ======================================================================
@@ -60,7 +60,8 @@ config :whispr_notification, :workers,
   metrics_interval: String.to_integer(System.get_env("METRICS_INTERVAL_MS", "60000")),
   cleanup_interval: String.to_integer(System.get_env("CLEANUP_INTERVAL_MS", "43200000")),
   cache_sync_interval: String.to_integer(System.get_env("CACHE_SYNC_INTERVAL_MS", "600000")),
-  token_refresh_interval: String.to_integer(System.get_env("TOKEN_REFRESH_INTERVAL_MS", "3600000"))
+  token_refresh_interval:
+    String.to_integer(System.get_env("TOKEN_REFRESH_INTERVAL_MS", "3600000"))
 
 # ======================================================================
 # Inter-service communication
@@ -83,7 +84,6 @@ config :whispr_notification, :services,
 # ======================================================================
 # FCM / APNS (Pigeon / Fcmex)
 # ======================================================================
-
 
 config :fcmex,
   project_id: System.get_env("FCM_PROJECT_ID"),

@@ -4,7 +4,8 @@ name: whispr-notification
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: whispr-notification-postgres
+    container_name: whispr-notification-postgres-dev
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -13,8 +14,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-    expose:
-      - ${POSTGRES_PORT}
+    ports:
+      - "${POSTGRES_PORT}:5432"
     networks:
       - whispr-notification-network
     healthcheck:
@@ -25,13 +26,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: whispr-notification-redis
+    container_name: whispr-notification-redis-dev
+    restart: unless-stopped
     volumes:
       - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
-    expose:
-      - ${REDIS_PORT}
+    ports:
+      - "${REDIS_PORT}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -40,24 +40,29 @@ services:
     networks:
       - whispr-notification-network
 
-
-
   notification-service:
     build:
       context: ../..
       dockerfile: docker/dev/Dockerfile
       cache_from:
         - whispr-notification-api:latest
-    container_name: whispr-notification-api
+    container_name: whispr-notification-api-dev
     env_file: .env
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
       - ../..:/app
       - deps:/app/deps
       - build:/app/_build
     ports:
-      - "8080:${HTTP_PORT}"
-      - "8443:${HTTPS_PORT}"
-      - "50052:50052"
+      - "${HTTP_PORT:-8080}:${PORT:-4002}"
+      - "${GRPC_PORT:-50052}:50052"
     networks:
       - whispr-notification-network
       - whispr-common-network
@@ -67,7 +72,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${HTTP_PORT}/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-4002}/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
