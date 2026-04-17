@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Notifications.HistoryTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
 
   alias WhisprNotifications.Notifications.History
   alias WhisprNotifications.Test.NotificationFixtures

@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Preferences.ManagerTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
 
   alias WhisprNotifications.Preferences.{Manager, UserSettings, ConversationSettings}
   alias WhisprNotifications.Test.NotificationFixtures

@@ -3,7 +3,7 @@ defmodule WhisprNotificationsWeb.RouterTest do
   Covers the alternate `/notification/api` scope kept for gateways that forward
   the full path without stripping the `/notification` prefix.
   """
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
   import Plug.Test
 
   alias WhisprNotificationsWeb.{MuteController, Router}

@@ -1,6 +1,8 @@
 defmodule WhisprNotifications.Delivery.BatchProcessor do
   @moduledoc """
   Envoi batch des notifications sur un ensemble de devices.
+  Les clients APNS/FCM concrets sont injectables via la config applicative
+  (`:apns_client_mod`, `:fcm_client_mod`) pour faciliter les tests.
   """
 
   alias WhisprNotifications.Devices.DeviceCache
@@ -11,22 +13,33 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
   def deliver(%Notification{} = notif, %DeviceCache{devices: devices}) do
     Enum.each(devices, fn device ->
       payload = Formatter.to_platform_payload(notif, device.platform)
-      send_to_device(device.platform, device, payload, %{retries: 0, device: device, payload: payload, platform: device.platform})
+
+      attempt = %{
+        retries: 0,
+        device: device,
+        payload: payload,
+        platform: device.platform
+      }
+
+      send_to_device(device.platform, device, payload, attempt)
     end)
 
     :ok
   end
 
-defp send_to_device(:android, device, payload, _attempt) do
-  FcmClient.send(device, payload)
-  :ok
-end
+  defp send_to_device(:android, device, payload, attempt) do
+    case fcm_client().send(device, payload) do
+      :ok -> :ok
+      {:error, _} -> maybe_retry(attempt)
+    end
+  end
 
-defp send_to_device(:ios, device, payload, _attempt) do
-  ApnsClient.send(device, payload)
-  :ok
-end
-
+  defp send_to_device(:ios, device, payload, attempt) do
+    case apns_client().send(device, payload) do
+      :ok -> :ok
+      {:error, _} -> maybe_retry(attempt)
+    end
+  end
 
   defp send_to_device(:web, _device, _payload, _attempt), do: :ok
 
@@ -37,5 +50,13 @@ end
     else
       :ok
     end
+  end
+
+  defp apns_client do
+    Application.get_env(:whispr_notification, :apns_client_mod, ApnsClient)
+  end
+
+  defp fcm_client do
+    Application.get_env(:whispr_notification, :fcm_client_mod, FcmClient)
   end
 end
