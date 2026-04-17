@@ -2,29 +2,51 @@ defmodule WhisprNotificationsWeb.SettingsController do
   use WhisprNotificationsWeb, :controller
 
   alias WhisprNotifications.Preferences.Manager
+  alias WhisprNotifications.Preferences.UserSettings
 
   # GET /api/settings/:id
   def show(conn, %{"id" => user_id}) do
     with {:ok, user_settings} <- Manager.get_user_settings(user_id) do
-      json(conn, %{
-        user_id: user_settings.user_id,
-        message_push_enabled: user_settings.message_push_enabled,
-        message_email_enabled: user_settings.message_email_enabled,
-        system_push_enabled: user_settings.system_push_enabled,
-        marketing_push_enabled: user_settings.marketing_push_enabled,
-        quiet_hours_start: user_settings.quiet_hours_start,
-        quiet_hours_end: user_settings.quiet_hours_end
-      })
+      json(conn, serialize(user_settings))
     else
       _ -> send_resp(conn, 404, "")
     end
   end
 
   # PUT /api/settings/:id
-  # Pour l’instant on renvoie du stub, tu brancheras sur ton stockage réel
   def update(conn, %{"id" => user_id} = params) do
-    # TODO: persister les settings et renvoyer le nouvel état
-    _ = {user_id, params}
-    send_resp(conn, 204, "")
+    attrs = Map.drop(params, ["id"])
+
+    case Manager.update_user_settings(user_id, attrs) do
+      {:ok, %UserSettings{} = settings} ->
+        json(conn, serialize(settings))
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: errors(changeset)})
+    end
+  end
+
+  defp serialize(%UserSettings{} = s) do
+    %{
+      user_id: s.user_id,
+      language: s.language,
+      timezone: s.timezone,
+      message_push_enabled: s.message_push_enabled,
+      message_email_enabled: s.message_email_enabled,
+      system_push_enabled: s.system_push_enabled,
+      marketing_push_enabled: s.marketing_push_enabled,
+      quiet_hours_start: s.quiet_hours_start,
+      quiet_hours_end: s.quiet_hours_end
+    }
+  end
+
+  defp errors(%Ecto.Changeset{} = changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {k, v}, acc ->
+        String.replace(acc, "%{#{k}}", to_string(v))
+      end)
+    end)
   end
 end

@@ -130,5 +130,39 @@ defmodule WhisprNotifications.NotificationsTest do
 
       assert notif.context == %{}
     end
+
+    test "rejects empty-string user_id" do
+      assert {:error, :validation, errs} =
+               Notifications.create(%{
+                 "user_id" => "",
+                 "type" => "message",
+                 "title" => "t",
+                 "body" => "b"
+               })
+
+      assert "user_id est requis" in errs
+    end
+
+    test "rejects non-binary user_id" do
+      assert {:error, :validation, errs} =
+               Notifications.create(%{
+                 "user_id" => 42,
+                 "type" => "message",
+                 "title" => "t",
+                 "body" => "b"
+               })
+
+      assert "user_id est requis" in errs
+    end
+
+    test "accepts atom type :message passed through unchanged" do
+      assert {:ok, %Notification{type: :system}} =
+               Notifications.create(%{
+                 user_id: "u-atom-type",
+                 type: :system,
+                 title: "t",
+                 body: "b"
+               })
+    end
   end
 end

@@ -40,4 +40,32 @@ defmodule WhisprNotifications.Auth.JwksTest do
       assert map == %{}
     end
   end
+
+  describe "fetch_keys/2" do
+    test "parses keys from a 200 response whose body is a decoded map" do
+      body = %{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]}
+      http_get = fn _url -> {:ok, %{status: 200, body: body}} end
+
+      assert {:ok, map} = Jwks.fetch_keys("http://auth/jwks", http_get)
+      assert Map.has_key?(map, ES256JwtFixtures.primary_kid())
+    end
+
+    test "parses keys from a 200 response whose body is a JSON string" do
+      body_json = Jason.encode!(%{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]})
+      http_get = fn _url -> {:ok, %{status: 200, body: body_json}} end
+
+      assert {:ok, map} = Jwks.fetch_keys("http://auth/jwks", http_get)
+      assert Map.has_key?(map, ES256JwtFixtures.primary_kid())
+    end
+
+    test "returns {:http, status} on non-200 responses" do
+      http_get = fn _ -> {:ok, %{status: 500}} end
+      assert {:error, {:http, 500}} = Jwks.fetch_keys("http://auth/jwks", http_get)
+    end
+
+    test "bubbles up transport errors" do
+      http_get = fn _ -> {:error, :econnrefused} end
+      assert {:error, :econnrefused} = Jwks.fetch_keys("http://auth/jwks", http_get)
+    end
+  end
 end

@@ -8,41 +8,33 @@
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS builder
 
-# Install build dependencies
 RUN apk add --no-cache \
     build-base \
     git \
     curl \
     openssl-dev
 
-# Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8
 
-# Create app directory
 WORKDIR /app
 
-# Install hex + rebar
 RUN mix local.hex --force && \
     mix local.rebar --force
 
-# Copy dependency files first (for caching)
 COPY mix.exs mix.lock ./
 COPY config config
 
-# Install dependencies
 RUN --mount=type=cache,target=/root/.hex \
     --mount=type=cache,target=/root/.mix \
     mix deps.get --only prod && \
     mix deps.compile
 
-# Copy application code
 COPY lib lib
+COPY priv priv
 
-# Compile the application
 RUN mix compile
 
-# Build release
 RUN mix release
 
 # -----------------------------------------------------------------------------
@@ -50,7 +42,6 @@ RUN mix release
 # -----------------------------------------------------------------------------
 FROM elixir:1.19-alpine AS runtime
 
-# Install runtime dependencies only (OpenSSL 3 via package openssl — pas de openssl1.1-compat sur Alpine 3.19+)
 RUN apk add --no-cache \
     libstdc++ \
     openssl \
@@ -59,11 +50,9 @@ RUN apk add --no-cache \
     curl \
     bash
 
-# Create non-root user for security
 RUN addgroup -g 1000 whispr && \
     adduser -u 1000 -G whispr -s /bin/sh -D whispr
 
-# Set environment variables
 ENV MIX_ENV=prod \
     LANG=C.UTF-8 \
     PORT=4002 \
@@ -71,23 +60,21 @@ ENV MIX_ENV=prod \
 
 WORKDIR /app
 
-# Copy release from builder
 COPY --from=builder --chown=whispr:whispr /app/_build/prod/rel/whispr_notification ./
+
+COPY --chown=whispr:whispr docker/prod/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 USER whispr
 
-# HTTP (PORT) + gRPC (GRPC_PORT)
 EXPOSE 4002 50052
 
-# Health check (route Phoenix : GET /api/v1/health)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -fsS http://localhost:4002/api/v1/health || exit 1
 
-# OCI Labels
 LABEL org.opencontainers.image.title="Whispr Notification Service" \
     org.opencontainers.image.description="Notification service for Whispr Messenger" \
     org.opencontainers.image.vendor="Whispr" \
     org.opencontainers.image.version="0.1.0"
 
-# Start the application
-CMD ["bin/whispr_notification", "start"]
+ENTRYPOINT ["/app/entrypoint.sh"]
