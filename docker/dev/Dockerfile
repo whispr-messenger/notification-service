@@ -25,6 +25,7 @@ RUN MIX_ENV=dev mix deps.compile
 
 COPY config ./config
 COPY lib ./lib
+COPY priv ./priv
 
 RUN MIX_ENV=dev mix compile
 

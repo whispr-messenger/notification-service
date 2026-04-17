@@ -1,9 +1,15 @@
 defmodule WhisprNotifications.Notifications.History do
   @moduledoc """
   Gestion de l'historique des notifications (persistance, requêtes).
+  Persiste les notifications dans `notification_history` via Ecto.
   """
 
+  import Ecto.Query
+
   alias WhisprNotifications.Notifications.Notification
+  alias WhisprNotifications.Repo
+
+  require Logger
 
   defmodule Behaviour do
     @callback save(Notification.t()) :: :ok | {:error, term()}
@@ -14,11 +20,50 @@ defmodule WhisprNotifications.Notifications.History do
   @behaviour Behaviour
 
   @impl true
-  def save(_notif), do: :ok
+  @spec save(Notification.t()) :: :ok | {:error, Ecto.Changeset.t() | term()}
+  def save(%Notification{} = notif) do
+    attrs = notif |> Map.from_struct() |> Map.drop([:__meta__])
+
+    %Notification{}
+    |> Notification.changeset(attrs)
+    |> Repo.insert(on_conflict: :nothing, conflict_target: :id)
+    |> case do
+      {:ok, _record} ->
+        :ok
+
+      {:error, changeset} ->
+        Logger.warning(
+          "[Notifications.History] failed to persist notification #{notif.id}: #{inspect(changeset.errors)}"
+        )
+
+        {:error, changeset}
+    end
+  end
 
   @impl true
-  def mark_read(_id, _at), do: :ok
+  @spec mark_read(String.t(), DateTime.t()) :: :ok | {:error, :not_found}
+  def mark_read(id, at \\ DateTime.utc_now()) do
+    at = DateTime.truncate(at, :second)
+
+    {count, _} =
+      from(n in Notification, where: n.id == ^id)
+      |> Repo.update_all(set: [read_at: at])
+
+    if count > 0, do: :ok, else: {:error, :not_found}
+  end
 
   @impl true
-  def list_for_user(_user_id, _opts \\ []), do: []
+  @spec list_for_user(String.t(), keyword()) :: [Notification.t()]
+  def list_for_user(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    offset = Keyword.get(opts, :offset, 0)
+
+    from(n in Notification,
+      where: n.user_id == ^user_id,
+      order_by: [desc: n.created_at],
+      limit: ^limit,
+      offset: ^offset
+    )
+    |> Repo.all()
+  end
 end
