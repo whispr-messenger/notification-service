@@ -1,12 +1,34 @@
 import Config
 
 if config_env() == :prod do
+  secret_key_base = System.fetch_env!("SECRET_KEY_BASE")
+
+  if byte_size(secret_key_base) < 64 do
+    raise """
+    SECRET_KEY_BASE must be at least 64 bytes long.
+    Got #{byte_size(secret_key_base)} bytes.
+    Generate one with: mix phx.gen.secret
+    """
+  end
+
+  database_url =
+    System.get_env("DATABASE_URL") ||
+      raise """
+      environment variable DATABASE_URL is missing.
+      Example: ecto://USER:PASS@HOST/DATABASE
+      """
+
+  config :whispr_notification, WhisprNotifications.Repo,
+    url: database_url,
+    pool_size: String.to_integer(System.get_env("DATABASE_POOL_SIZE", "10")),
+    ssl: System.get_env("DATABASE_SSL", "false") == "true"
+
   config :whispr_notification, WhisprNotificationsWeb.Endpoint,
     http: [
       ip: {0, 0, 0, 0},
       port: String.to_integer(System.get_env("PORT", "4011"))
     ],
-    secret_key_base: System.fetch_env!("SECRET_KEY_BASE"),
+    secret_key_base: secret_key_base,
     url: [
       host: System.get_env("PHX_HOST", "localhost"),
       port: 443,

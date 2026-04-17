@@ -9,6 +9,8 @@ defmodule WhisprNotifications.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      # Ecto Repo — must start before anything that queries the DB
+      WhisprNotifications.Repo,
       # PubSub — must start before the Endpoint
       {Phoenix.PubSub, name: WhisprNotifications.PubSub},
       # Phoenix HTTP endpoint — binds the HTTP port declared in config

@@ -63,6 +63,42 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
       assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
       assert notif.title == "Moderation action taken"
     end
+
+    test "creates kick notification" do
+      payload = %{
+        "user_id" => "user-k",
+        "sanction_type" => "kick",
+        "reason" => "Rude",
+        "expires_at" => nil
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
+      assert notif.title == "You have been removed from a conversation"
+    end
+
+    test "creates warning notification" do
+      payload = %{
+        "user_id" => "user-w",
+        "sanction_type" => "warning",
+        "reason" => "First strike",
+        "expires_at" => nil
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
+      assert notif.title == "You have received a warning"
+    end
+
+    test "creates perm_ban notification" do
+      payload = %{
+        "user_id" => "user-p",
+        "sanction_type" => "perm_ban",
+        "reason" => "Repeated violations",
+        "expires_at" => nil
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
+      assert notif.title == "Your account has been suspended"
+    end
   end
 
   describe "handle_sanction_lifted/1" do

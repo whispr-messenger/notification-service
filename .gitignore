@@ -21,3 +21,5 @@ erl_crash.dump
 
 docker/dev/env/*.env
 docker/prod/env/*.env
+docker/test/env/*.env
+docker/test/.env

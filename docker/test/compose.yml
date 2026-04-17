@@ -2,6 +2,25 @@
 name: whispr-notification-test
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispr-notification-test-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-whispr_notification_test}
+    tmpfs:
+      - /var/lib/postgresql/data
+    expose:
+      - "5432"
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     container_name: whispr-notification-test-redis
@@ -26,6 +45,11 @@ services:
     container_name: whispr-notification-test-runner
     environment:
       MIX_ENV: test
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_NAME: ${POSTGRES_DB:-whispr_notification_test}
       REDIS_HOST: redis
       REDIS_PORT: 6379
     volumes:
@@ -36,9 +60,20 @@ services:
     networks:
       - test-network
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
-    command: /bin/bash -c "mix deps.get && mix test && mix coveralls.html && mix coveralls.xml && mix coveralls.cobertura"
+    command: >
+      /bin/bash -c "
+        mix deps.get &&
+        mix ecto.create --quiet &&
+        mix ecto.migrate --quiet &&
+        mix test &&
+        mix coveralls.html &&
+        mix coveralls.xml &&
+        mix coveralls.cobertura
+      "
 
 volumes:
   test-deps:

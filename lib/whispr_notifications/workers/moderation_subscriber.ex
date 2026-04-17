@@ -110,14 +110,16 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
   defp route_event(channel, _payload),
     do: Logger.warning("[ModerationSubscriber] Unknown channel: #{channel}")
 
-  defp maybe_add_password(opts, nil), do: opts
-  defp maybe_add_password(opts, ""), do: opts
-  defp maybe_add_password(opts, password), do: Keyword.put(opts, :password, password)
+  @doc false
+  def maybe_add_password(opts, nil), do: opts
+  def maybe_add_password(opts, ""), do: opts
+  def maybe_add_password(opts, password), do: Keyword.put(opts, :password, password)
 
   # Build Redix options from runtime config. If :sentinels is configured and
   # non-empty, connect through Redis Sentinel; otherwise fall back to a
   # standalone host/port connection (dev/docker/local).
-  defp build_redix_opts do
+  @doc false
+  def build_redix_opts do
     redis_config = Application.get_env(:whispr_notification, :redis, [])
     sentinels = Keyword.get(redis_config, :sentinels, [])
 
@@ -143,12 +145,13 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
     |> maybe_add_password(Keyword.get(redis_config, :password))
   end
 
-  defp parse_sentinel(entry) when is_binary(entry) do
+  @doc false
+  def parse_sentinel(entry) when is_binary(entry) do
     case String.split(entry, ":", parts: 2) do
       [host, port] -> [host: host, port: String.to_integer(port)]
       [host] -> [host: host, port: 26_379]
     end
   end
 
-  defp parse_sentinel(entry) when is_list(entry), do: entry
+  def parse_sentinel(entry) when is_list(entry), do: entry
 end
