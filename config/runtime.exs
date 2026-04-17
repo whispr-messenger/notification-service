@@ -1,12 +1,22 @@
 import Config
 
 if config_env() == :prod do
+  secret_key_base = System.fetch_env!("SECRET_KEY_BASE")
+
+  if byte_size(secret_key_base) < 64 do
+    raise """
+    SECRET_KEY_BASE must be at least 64 bytes long.
+    Got #{byte_size(secret_key_base)} bytes.
+    Generate one with: mix phx.gen.secret
+    """
+  end
+
   config :whispr_notification, WhisprNotificationsWeb.Endpoint,
     http: [
       ip: {0, 0, 0, 0},
       port: String.to_integer(System.get_env("PORT", "4011"))
     ],
-    secret_key_base: System.fetch_env!("SECRET_KEY_BASE"),
+    secret_key_base: secret_key_base,
     url: [
       host: System.get_env("PHX_HOST", "localhost"),
       port: 443,
