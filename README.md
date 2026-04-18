@@ -1,6 +1,6 @@
 # Whispr Messenger - Notification Microservice
 
-[![Quality Gate Status]]
+[![App Status](https://argocd.whispr.epitech.beer/api/badge?name=notification-service&revision=true&showAppName=true)](https://argocd.whispr.epitech.beer/applications/notification-service)
 
 ## Overview
 
