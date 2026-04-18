@@ -1,6 +1,6 @@
 # Whispr Messenger - Notification Microservice
 
-[![Quality Gate Status]]
+[![App Status](https://argocd.whispr.epitech.beer/api/badge?name=notification-service&revision=true&showAppName=true)](https://argocd.whispr.epitech.beer/applications/notification-service)
 
 ## Overview
 
@@ -79,6 +79,7 @@ Variables à définir dans `.env` :
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 - `FCM_KEY`, `APNS_CERT`, `APNS_KEY`
 - `ISTIO_ENABLED`, `GRPC_PORT`, `REST_PORT`
+- `AUTH_SERVICE_URL` — URL du endpoint JWKS pour la vérification des tokens
 
 ## Usage
 
@@ -140,5 +141,5 @@ Projet Whispr : usage privé, tous droits réservés.
 **Développé par l'équipe Whispr**
 
 Version : 1.0.0  
-Dernière mise à jour – 14/11/2025
+Dernière mise à jour – 18/04/2026
 
