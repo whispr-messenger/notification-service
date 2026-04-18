@@ -141,5 +141,5 @@ Projet Whispr : usage privé, tous droits réservés.
 **Développé par l'équipe Whispr**
 
 Version : 1.0.0  
-Dernière mise à jour – 14/11/2025
+Dernière mise à jour – 18/04/2026
 
