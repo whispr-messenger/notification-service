@@ -79,6 +79,7 @@ Variables à définir dans `.env` :
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
 - `FCM_KEY`, `APNS_CERT`, `APNS_KEY`
 - `ISTIO_ENABLED`, `GRPC_PORT`, `REST_PORT`
+- `AUTH_SERVICE_URL` — URL du endpoint JWKS pour la vérification des tokens
 
 ## Usage
 
