@@ -118,8 +118,8 @@ docker-compose up -d
 
 ### gRPC
 
-- `SendNotification`
-- `SendBulkNotifications`
+- `SendNotification` — Envoi d'une notification unique
+- `SendBulkNotifications` — Envoi en batch
 - `NotifyDeviceEvent`
 - Voir détails & schémas dans `/documentation`
 
