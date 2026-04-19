@@ -27,3 +27,15 @@ mix test
 - Branches : `WHISPR-XXX-description`
 - Format : `mix format`
 - Lint : `mix credo --strict`
+
+## Structure du projet
+
+```
+lib/
+├── whispr_notification/        # Logique métier
+│   ├── services/
+│   └── workers/
+└── whispr_notification_web/    # Couche web
+    ├── controllers/
+    └── plugs/
+```
