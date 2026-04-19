@@ -26,3 +26,4 @@ mix test
 - Conventional commits
 - Branches : `WHISPR-XXX-description`
 - Format : `mix format`
+- Lint : `mix credo --strict`
