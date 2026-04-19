@@ -151,6 +151,11 @@ Notification ──▶ DeliveryService ──▶ ┌─── FCM (Android)
 
 Projet Whispr : usage privé, tous droits réservés.
 
+## Liens utiles
+
+- [Guide de contribution](CONTRIBUTING.md)
+- [Politique de sécurité](SECURITY.md)
+
 ---
 
 **Développé par l'équipe Whispr**
