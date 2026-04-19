@@ -120,8 +120,15 @@ docker-compose up -d
 
 - `SendNotification` — Envoi d'une notification unique
 - `SendBulkNotifications` — Envoi en batch
-- `NotifyDeviceEvent`
+- `NotifyDeviceEvent` — Gestion des événements d'appareil (login, logout)
 - Voir détails & schémas dans `/documentation`
+
+### Flux de livraison
+
+```
+Notification ──▶ DeliveryService ──▶ ┌─── FCM (Android)
+                                     └─── APNS (iOS)
+```
 
 ## Testing
 
