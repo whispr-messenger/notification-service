@@ -8,3 +8,5 @@ Vérification JWT via JWKS (auth-service).
 
 - Clés FCM et certificats APNS stockés dans Vault
 - Communication gRPC sécurisée via mTLS (Istio)
+- Filtrage des notifications par préférences utilisateur
+- Pas de stockage de contenu des messages
