@@ -41,6 +41,14 @@ Microservice de notifications développé par DALM1 équipe Whispr. Ce service a
 - **EventService** : gestion des événements métiers (message, média, modération)
 - **GrpcService** : communication avec auth-service, user-service, messaging-service
 
+### Flux de notification
+
+```
+Événement ──▶ EventService ──▶ NotificationService ──▶ DeliveryService
+  (message,                     (filtrage,               (FCM / APNS)
+   média...)                     préférences)
+```
+
 ## Features
 
 - Distribution multi-canal des notifications (FCM/APNS)
