@@ -109,7 +109,21 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
     end
   end
 
-  describe "deliver/2 FCM retry behaviour" do
+  describe "deliver/2 FCM error behaviour" do
+    test "returns :ok even when FCM sends fail" do
+      Application.put_env(
+        :whispr_notification,
+        :fcm_spy_response,
+        {:error, :service_unavailable}
+      )
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      assert :ok == BatchProcessor.deliver(notif, cache)
+    end
+
     test "retries on FCM failure" do
       {:ok, counter} = Agent.start_link(fn -> 0 end)
 

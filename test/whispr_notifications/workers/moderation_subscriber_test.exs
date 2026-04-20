@@ -69,6 +69,20 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
+  test "retry_connect stops the GenServer (supervisor will restart it)" do
+    pid = Process.whereis(ModerationSubscriber)
+    ref = Process.monitor(pid)
+    send(pid, :retry_connect)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1_000
+
+    # Wait for supervisor to restart the process
+    Process.sleep(200)
+    new_pid = Process.whereis(ModerationSubscriber)
+    assert is_pid(new_pid)
+    assert Process.alive?(new_pid)
+  end
+
   test "routes blocked image appeal channels without crashing" do
     pid = Process.whereis(ModerationSubscriber)
     assert Process.alive?(pid)
