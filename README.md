@@ -41,14 +41,6 @@ Microservice de notifications développé par DALM1 équipe Whispr. Ce service a
 - **EventService** : gestion des événements métiers (message, média, modération)
 - **GrpcService** : communication avec auth-service, user-service, messaging-service
 
-### Flux de notification
-
-```
-Événement ──▶ EventService ──▶ NotificationService ──▶ DeliveryService
-  (message,                     (filtrage,               (FCM / APNS)
-   média...)                     préférences)
-```
-
 ## Features
 
 - Distribution multi-canal des notifications (FCM/APNS)
@@ -118,17 +110,10 @@ docker-compose up -d
 
 ### gRPC
 
-- `SendNotification` — Envoi d'une notification unique
-- `SendBulkNotifications` — Envoi en batch
-- `NotifyDeviceEvent` — Gestion des événements d'appareil (login, logout)
+- `SendNotification`
+- `SendBulkNotifications`
+- `NotifyDeviceEvent`
 - Voir détails & schémas dans `/documentation`
-
-### Flux de livraison
-
-```
-Notification ──▶ DeliveryService ──▶ ┌─── FCM (Android)
-                                     └─── APNS (iOS)
-```
 
 ## Testing
 
@@ -150,11 +135,6 @@ Notification ──▶ DeliveryService ──▶ ┌─── FCM (Android)
 ## License
 
 Projet Whispr : usage privé, tous droits réservés.
-
-## Liens utiles
-
-- [Guide de contribution](CONTRIBUTING.md)
-- [Politique de sécurité](SECURITY.md)
 
 ---
 

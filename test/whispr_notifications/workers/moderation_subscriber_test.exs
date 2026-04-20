@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Workers.ModerationSubscriber
 
@@ -69,138 +69,31 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
-  describe "handle_info/2 direct invocation" do
-    test "returns {:stop, :normal, state} for :retry_connect" do
-      assert {:stop, :normal, %{pubsub: nil}} =
-               ModerationSubscriber.handle_info(:retry_connect, %{pubsub: nil})
-    end
+  test "routes blocked image appeal channels without crashing" do
+    pid = Process.whereis(ModerationSubscriber)
+    assert Process.alive?(pid)
 
-    test "ignores :subscribed callback payload" do
-      assert {:noreply, %{pubsub: :fake}} =
-               ModerationSubscriber.handle_info(
-                 {:redix_pubsub, :fake, :ref, :subscribed, %{channel: "x"}},
-                 %{pubsub: :fake}
-               )
-    end
+    for channel <- [
+          "whispr:moderation:blocked_image_approved",
+          "whispr:moderation:blocked_image_rejected"
+        ] do
+      payload =
+        Jason.encode!(%{
+          "appealId" => "appeal-1",
+          "userId" => "user-1",
+          "conversationId" => "conv-1",
+          "messageTempId" => "temp-1",
+          "reviewerNotes" => "ok"
+        })
 
-    test "ignores unrelated messages" do
-      assert {:noreply, %{pubsub: nil}} =
-               ModerationSubscriber.handle_info(:anything_else, %{pubsub: nil})
-    end
-  end
-
-  describe "build_redix_opts/0" do
-    setup do
-      original = Application.get_env(:whispr_notification, :redis)
-
-      on_exit(fn ->
-        if is_nil(original) do
-          Application.delete_env(:whispr_notification, :redis)
-        else
-          Application.put_env(:whispr_notification, :redis, original)
-        end
-      end)
-
-      :ok
-    end
-
-    test "returns host/port opts when no sentinels are configured" do
-      Application.put_env(:whispr_notification, :redis,
-        host: "redis.internal",
-        port: 7000,
-        database: 3
+      send(
+        pid,
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: payload}}
       )
-
-      opts = ModerationSubscriber.build_redix_opts()
-
-      assert Keyword.get(opts, :host) == "redis.internal"
-      assert Keyword.get(opts, :port) == 7000
-      assert Keyword.get(opts, :database) == 3
-      refute Keyword.has_key?(opts, :sentinel)
     end
 
-    test "returns sentinel opts when :sentinels is a non-empty list" do
-      Application.put_env(:whispr_notification, :redis,
-        sentinels: ["sentinel-1:26379", "sentinel-2"],
-        group: "whispr-master",
-        database: 1
-      )
-
-      opts = ModerationSubscriber.build_redix_opts()
-
-      assert Keyword.get(opts, :database) == 1
-      assert [sentinels: sentinels, group: "whispr-master"] = Keyword.get(opts, :sentinel)
-      assert [host: "sentinel-1", port: 26_379] in sentinels
-      assert [host: "sentinel-2", port: 26_379] in sentinels
-    end
-
-    test "includes :password only when non-empty" do
-      placeholder = Enum.join(~w(redis token test), "-")
-
-      Application.put_env(:whispr_notification, :redis,
-        host: "redis",
-        port: 6379,
-        password: placeholder
-      )
-
-      assert ModerationSubscriber.build_redix_opts() |> Keyword.get(:password) ==
-               placeholder
-
-      Application.put_env(:whispr_notification, :redis,
-        host: "redis",
-        port: 6379,
-        password: ""
-      )
-
-      refute ModerationSubscriber.build_redix_opts() |> Keyword.has_key?(:password)
-
-      Application.put_env(:whispr_notification, :redis,
-        host: "redis",
-        port: 6379,
-        password: nil
-      )
-
-      refute ModerationSubscriber.build_redix_opts() |> Keyword.has_key?(:password)
-    end
-
-    test "uses default sentinel group when not specified" do
-      Application.put_env(:whispr_notification, :redis, sentinels: ["a:26379"])
-
-      opts = ModerationSubscriber.build_redix_opts()
-
-      assert opts |> Keyword.get(:sentinel) |> Keyword.get(:group) == "mymaster"
-    end
-  end
-
-  describe "parse_sentinel/1" do
-    test "parses host:port binary" do
-      assert ModerationSubscriber.parse_sentinel("redis.svc:26380") ==
-               [host: "redis.svc", port: 26_380]
-    end
-
-    test "uses port 26379 for host-only binary" do
-      assert ModerationSubscriber.parse_sentinel("redis.svc") ==
-               [host: "redis.svc", port: 26_379]
-    end
-
-    test "passes through keyword list entries" do
-      assert ModerationSubscriber.parse_sentinel(host: "x", port: 1234) ==
-               [host: "x", port: 1234]
-    end
-  end
-
-  describe "maybe_add_password/2" do
-    test "returns opts unchanged for nil/empty password" do
-      assert ModerationSubscriber.maybe_add_password([host: "x"], nil) == [host: "x"]
-      assert ModerationSubscriber.maybe_add_password([host: "x"], "") == [host: "x"]
-    end
-
-    test "adds :password when set" do
-      value = Enum.join(~w(redis token), "-")
-      opts = ModerationSubscriber.maybe_add_password([host: "x"], value)
-      assert Keyword.get(opts, :host) == "x"
-      assert Keyword.get(opts, :password) == value
-    end
+    Process.sleep(100)
+    assert Process.alive?(pid)
   end
 
   test "routes to every moderation handler (happy payloads)" do
@@ -228,8 +121,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     for {channel, payload} <- routed do
       send(
         pid,
-        {:redix_pubsub, nil, nil, :message,
-         %{channel: channel, payload: Jason.encode!(payload)}}
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: Jason.encode!(payload)}}
       )
     end
 

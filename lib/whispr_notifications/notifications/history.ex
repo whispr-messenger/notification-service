@@ -41,15 +41,15 @@ defmodule WhisprNotifications.Notifications.History do
   end
 
   @impl true
-  @spec mark_read(String.t(), DateTime.t()) :: :ok | {:error, :not_found}
+  @spec mark_read(String.t(), DateTime.t()) :: :ok
   def mark_read(id, at \\ DateTime.utc_now()) do
     at = DateTime.truncate(at, :second)
 
-    {count, _} =
+    {_count, _} =
       from(n in Notification, where: n.id == ^id)
       |> Repo.update_all(set: [read_at: at])
 
-    if count > 0, do: :ok, else: {:error, :not_found}
+    :ok
   end
 
   @impl true

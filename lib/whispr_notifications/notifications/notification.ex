@@ -7,10 +7,10 @@ defmodule WhisprNotifications.Notifications.Notification do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :binary_id, autogenerate: false}
-  @foreign_key_type :binary_id
+  @primary_key {:id, :string, autogenerate: false}
 
   @types ~w(message group system)a
+  @required_new_keys [:user_id, :type, :title, :body]
 
   schema "notification_history" do
     field :user_id, :string
@@ -53,7 +53,6 @@ defmodule WhisprNotifications.Notifications.Notification do
   ]
 
   @required_fields [:id, :user_id, :type, :title, :body, :created_at]
-  @required_new_keys [:user_id, :type, :title, :body]
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(notif \\ %__MODULE__{}, attrs) do
@@ -64,17 +63,24 @@ defmodule WhisprNotifications.Notifications.Notification do
 
   @spec new(map()) :: t()
   def new(attrs) do
-    missing = Enum.reject(@required_new_keys, &Map.has_key?(attrs, &1))
-
-    unless missing == [] do
-      raise ArgumentError,
-            "missing required keys for Notification.new/1: #{inspect(missing)}"
-    end
+    :ok = validate_required!(attrs)
 
     id = Map.get(attrs, :id) || Ecto.UUID.generate()
     created_at = Map.get(attrs, :created_at) || now()
 
     struct!(__MODULE__, Map.merge(%{id: id, created_at: created_at}, attrs))
+  end
+
+  defp validate_required!(attrs) do
+    missing =
+      Enum.filter(@required_new_keys, fn key ->
+        is_nil(Map.get(attrs, key))
+      end)
+
+    case missing do
+      [] -> :ok
+      keys -> raise ArgumentError, "missing required keys for Notification.new/1: #{inspect(keys)}"
+    end
   end
 
   @spec mark_read(t(), DateTime.t()) :: t()

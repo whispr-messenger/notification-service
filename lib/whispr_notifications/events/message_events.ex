@@ -9,12 +9,12 @@ defmodule WhisprNotifications.Events.MessageEvents do
   alias WhisprNotifications.Delivery.BatchProcessor
 
   @type message_event :: %{
-          user_id: String.t(),
-          conversation_id: String.t(),
-          message_id: String.t(),
-          sender_id: String.t(),
-          preview: String.t()
-        }
+    user_id: String.t(),
+    conversation_id: String.t(),
+    message_id: String.t(),
+    sender_id: String.t(),
+    preview: String.t()
+  }
 
   @spec handle_new_message(message_event()) :: :ok
   def handle_new_message(event) do
@@ -31,12 +31,12 @@ defmodule WhisprNotifications.Events.MessageEvents do
         }
       })
 
-    if Filter.should_send?(notif) do
-      {:ok, cache} = CacheManager.get_cache(event.user_id)
-      :ok = BatchProcessor.deliver(notif, cache)
-      :ok = History.save(notif)
-    else
-      :ok
-    end
+      if Filter.should_send?(notif) do
+        {:ok, cache} = CacheManager.get_cache(event.user_id)
+        :ok = BatchProcessor.deliver(notif, cache)
+        :ok = History.save(notif)
+      else
+        :ok
+      end
   end
 end

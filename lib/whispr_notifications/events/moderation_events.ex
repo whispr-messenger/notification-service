@@ -9,6 +9,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
   - whispr:moderation:appeal_created
   - whispr:moderation:appeal_resolved
   - whispr:moderation:threshold_reached
+  - whispr:moderation:blocked_image_approved
+  - whispr:moderation:blocked_image_rejected
   """
 
   require Logger
@@ -179,6 +181,52 @@ defmodule WhisprNotifications.Events.ModerationEvents do
       })
 
     Logger.info("[ModerationEvents] Threshold warning for user #{payload["reported_user_id"]}")
+
+    result
+  end
+
+  @doc "Notify a user when their blocked image appeal has been reviewed."
+  @spec handle_blocked_image_decision(map(), String.t()) ::
+          {:ok, Notification.t()} | {:error, term()}
+  def handle_blocked_image_decision(payload, decision)
+      when decision in ["approved", "rejected"] do
+    {title, body} =
+      case decision do
+        "approved" ->
+          {"Image appeal approved",
+           "Your contested image has been approved and will be delivered."}
+
+        "rejected" ->
+          {"Image appeal rejected",
+           String.trim(
+             "Your contested image has been rejected. #{payload["reviewerNotes"] || ""}"
+           )}
+      end
+
+    context =
+      %{
+        "event" => "blocked_image_decision",
+        "appealId" => payload["appealId"],
+        "decision" => decision,
+        "messageTempId" => payload["messageTempId"],
+        "conversationId" => payload["conversationId"],
+        "reason" => payload["reviewerNotes"]
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    result =
+      Notifications.create(%{
+        user_id: payload["userId"],
+        type: :system,
+        title: title,
+        body: body,
+        context: context
+      })
+
+    Logger.info(
+      "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{payload["userId"]} (appeal=#{payload["appealId"]})"
+    )
 
     result
   end
