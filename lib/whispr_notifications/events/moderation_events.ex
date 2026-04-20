@@ -224,27 +224,20 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         {:error, :missing_user_id}
 
       user_id ->
-        case Notifications.create(%{
-               user_id: user_id,
-               type: :system,
-               title: title,
-               body: body,
-               context: context
-             }) do
-          {:ok, _notification} = ok ->
-            Logger.info(
-              "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{user_id} (appeal=#{payload["appealId"]})"
-            )
+        result =
+          Notifications.create(%{
+            user_id: user_id,
+            type: :system,
+            title: title,
+            body: body,
+            context: context
+          })
 
-            ok
+        Logger.info(
+          "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{user_id} (appeal=#{payload["appealId"]})"
+        )
 
-          {:error, reason} = error ->
-            Logger.warning(
-              "[ModerationEvents] Blocked image appeal #{decision} notification failed for user #{user_id} (appeal=#{payload["appealId"]}): #{inspect(reason)}"
-            )
-
-            error
-        end
+        result
     end
   end
 end
