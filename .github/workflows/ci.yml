@@ -8,17 +8,6 @@ on:
       - '**.md'
       - 'documentation/**'
       - '.github/workflows/cd.yml'
-  pull_request:
-    branches: [main, develop, deploy/preprod]
-    paths-ignore:
-      - 'k8s/**'
-      - '**.md'
-      - 'documentation/**'
-      - '.github/workflows/cd.yml'
-
-concurrency:
-  group: ci-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
