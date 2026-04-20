@@ -215,19 +215,36 @@ defmodule WhisprNotifications.Events.ModerationEvents do
       |> Enum.reject(fn {_k, v} -> is_nil(v) end)
       |> Map.new()
 
-    result =
-      Notifications.create(%{
-        user_id: payload["userId"],
-        type: :system,
-        title: title,
-        body: body,
-        context: context
-      })
+    case payload["userId"] do
+      user_id when user_id in [nil, ""] ->
+        Logger.warning(
+          "[ModerationEvents] Blocked image appeal #{decision} notification not created: missing userId (appeal=#{payload["appealId"]})"
+        )
 
-    Logger.info(
-      "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{payload["userId"]} (appeal=#{payload["appealId"]})"
-    )
+        {:error, :missing_user_id}
 
-    result
+      user_id ->
+        case Notifications.create(%{
+               user_id: user_id,
+               type: :system,
+               title: title,
+               body: body,
+               context: context
+             }) do
+          {:ok, _notification} = ok ->
+            Logger.info(
+              "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{user_id} (appeal=#{payload["appealId"]})"
+            )
+
+            ok
+
+          {:error, reason} = error ->
+            Logger.warning(
+              "[ModerationEvents] Blocked image appeal #{decision} notification failed for user #{user_id} (appeal=#{payload["appealId"]}): #{inspect(reason)}"
+            )
+
+            error
+        end
+    end
   end
 end

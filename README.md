@@ -75,11 +75,11 @@ mix ecto.migrate
 ## Configuration
 
 Variables à définir dans `.env` :
-- `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`
+- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
-- `FCM_KEY`, `APNS_CERT`, `APNS_KEY`
-- `ISTIO_ENABLED`, `GRPC_PORT`, `REST_PORT`
-- `AUTH_SERVICE_URL` — URL du endpoint JWKS pour la vérification des tokens
+- `FCM_PROJECT_ID`, `FCM_JSON_KEYFILE`, `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`
+- `GRPC_PORT`, `PORT`
+- `AUTH_SERVICE_HOST`, `AUTH_SERVICE_PORT` — coordonnées gRPC du service d'authentification
 
 ## Usage
 

@@ -17,7 +17,7 @@ jobs:
     notify-discord:
         name: Send Discord Notification
         runs-on: ubuntu-latest
-        if: github.event.pull_request.draft == false
+        if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
 
         steps:
             - name: Determine PR action details
@@ -138,6 +138,6 @@ jobs:
                   embed-url: ${{ github.event.review.html_url }}
                   embed-color: ${{ steps.review_action.outputs.color }}
                   embed-thumbnail-url: ${{ github.event.review.user.avatar_url }}
-                  embed-footer-text: "auth-service • whispr-messenger"
+                  embed-footer-text: "notification-service • whispr-messenger"
                   embed-footer-icon-url: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
                   embed-timestamp: ${{ github.event.review.submitted_at }}

@@ -20,7 +20,7 @@ defmodule WhisprNotifications.Events.MessageEvents do
   def handle_new_message(event) do
     notif =
       Notification.new(%{
-        user_id: event.conversation_id,
+        user_id: event.user_id,
         conversation_id: event.conversation_id,
         type: :message,
         title: "Nouveau message",
