@@ -40,4 +40,5 @@ defmodule WhisprNotifications.Auth.JwksTest do
       assert map == %{}
     end
   end
+
 end

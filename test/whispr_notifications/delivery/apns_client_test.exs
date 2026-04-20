@@ -92,6 +92,34 @@ defmodule WhisprNotifications.Delivery.ApnsClientTest do
     end
   end
 
+  describe "token masking" do
+    test "masks the token in success logs", %{payload: payload} do
+      device = %{token: "abcdef123456789", platform: :ios, app: "com.whispr.app"}
+      Application.put_env(:whispr_notification, :apns_push_fun, fn _d, _p -> :ok end)
+
+      log =
+        capture_log(fn ->
+          ApnsClient.send(device, payload)
+        end)
+
+      assert log =~ "***"
+      assert log =~ "56789"
+      refute log =~ "abcdef123456789"
+    end
+
+    test "logs unknown when device has no token", %{payload: payload} do
+      device = %{platform: :ios, app: "com.whispr.app"}
+      Application.put_env(:whispr_notification, :apns_push_fun, fn _d, _p -> :ok end)
+
+      log =
+        capture_log(fn ->
+          ApnsClient.send(device, payload)
+        end)
+
+      assert log =~ "unknown"
+    end
+  end
+
   describe "send/2 default behaviour" do
     test "uses default push function when none configured", %{device: device, payload: payload} do
       Application.delete_env(:whispr_notification, :apns_push_fun)
