@@ -92,7 +92,7 @@ jobs:
     notify-review:
         name: Send Review Notification
         runs-on: ubuntu-latest
-        if: github.event_name == 'pull_request_review'
+        if: github.event_name == 'pull_request_review' && github.event.review.state != 'commented'
 
         steps:
             - name: Determine review details
