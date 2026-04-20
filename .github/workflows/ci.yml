@@ -16,6 +16,10 @@ on:
       - 'documentation/**'
       - '.github/workflows/cd.yml'
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
   checks: write
