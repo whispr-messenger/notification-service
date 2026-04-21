@@ -2,15 +2,20 @@ defmodule WhisprNotificationsWeb.SettingsControllerTest do
   use WhisprNotifications.DataCase, async: true
   import Plug.Test
 
-  alias WhisprNotificationsWeb.Router
+  alias WhisprNotificationsWeb.SettingsController
 
   defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
 
-  test "GET /api/settings/:id returns user settings JSON" do
+  # The /settings routes sit behind the :jwt_authenticated pipeline
+  # (WHISPR-1028). Unit tests call the controller actions directly so they
+  # don't need to stage JWKS + sign a test token; the auth wiring itself is
+  # exercised by the jwt_guard_integration_test suite.
+
+  test "show/2 returns user settings JSON" do
     conn =
       :get
       |> conn("/api/settings/user-settings-1")
-      |> Router.call([])
+      |> SettingsController.show(%{"id" => "user-settings-1"})
 
     assert conn.status == 200
     decoded = Jason.decode!(conn.resp_body)
@@ -21,34 +26,38 @@ defmodule WhisprNotificationsWeb.SettingsControllerTest do
     assert decoded["marketing_push_enabled"] == false
   end
 
-  test "PUT /api/settings/:id returns 204" do
+  test "update/2 returns 204" do
     conn =
       :put
-      |> conn("/api/settings/user-settings-2", %{"message_push_enabled" => false})
-      |> Router.call([])
+      |> conn("/api/settings/user-settings-2")
+      |> SettingsController.update(%{
+        "id" => "user-settings-2",
+        "message_push_enabled" => false
+      })
 
     assert conn.status == 204
   end
 
-  test "PUT /api/settings/:id persists changes visible to a subsequent GET" do
+  test "update/2 persists changes visible to a subsequent show/2" do
     user_id = unique_id("user-settings")
 
     put_conn =
       :put
-      |> conn("/api/settings/#{user_id}", %{
+      |> conn("/api/settings/#{user_id}")
+      |> SettingsController.update(%{
+        "id" => user_id,
         "message_push_enabled" => false,
         "marketing_push_enabled" => true,
         "language" => "fr",
         "timezone" => "Europe/Paris"
       })
-      |> Router.call([])
 
     assert put_conn.status == 204
 
     get_conn =
       :get
       |> conn("/api/settings/#{user_id}")
-      |> Router.call([])
+      |> SettingsController.show(%{"id" => user_id})
 
     assert get_conn.status == 200
     decoded = Jason.decode!(get_conn.resp_body)
@@ -59,13 +68,16 @@ defmodule WhisprNotificationsWeb.SettingsControllerTest do
     assert decoded["timezone"] == "Europe/Paris"
   end
 
-  test "PUT /api/settings/:id returns 422 on invalid attributes" do
+  test "update/2 returns 422 on invalid attributes" do
     user_id = unique_id("user-settings")
 
     conn =
       :put
-      |> conn("/api/settings/#{user_id}", %{"quiet_hours_start" => "not-a-time"})
-      |> Router.call([])
+      |> conn("/api/settings/#{user_id}")
+      |> SettingsController.update(%{
+        "id" => user_id,
+        "quiet_hours_start" => "not-a-time"
+      })
 
     assert conn.status == 422
     assert %{"errors" => errors} = Jason.decode!(conn.resp_body)
