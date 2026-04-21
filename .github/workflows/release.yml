@@ -151,7 +151,17 @@ jobs:
         run: |
           version="${{ steps.next_version.outputs.version }}"
 
-          git tag "$version"
+          if git rev-parse "$version" >/dev/null 2>&1; then
+            echo "Tag $version already exists locally — aborting to avoid clobbering a prior release."
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$version" >/dev/null 2>&1; then
+            echo "Tag $version already exists on origin — aborting to avoid clobbering a prior release."
+            exit 1
+          fi
+
+          git tag -a "$version" -m "Release $version"
           git push origin "$version"
 
           gh release create "$version" \

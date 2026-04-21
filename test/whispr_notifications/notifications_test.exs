@@ -84,6 +84,30 @@ defmodule WhisprNotifications.NotificationsTest do
       assert "user_id est requis" in errs
     end
 
+    test "rejects empty-string user_id" do
+      assert {:error, :validation, errs} =
+               Notifications.create(%{
+                 "user_id" => "",
+                 "type" => "message",
+                 "title" => "t",
+                 "body" => "b"
+               })
+
+      assert "user_id est requis" in errs
+    end
+
+    test "rejects non-binary user_id (integer)" do
+      assert {:error, :validation, errs} =
+               Notifications.create(%{
+                 "user_id" => 42,
+                 "type" => "message",
+                 "title" => "t",
+                 "body" => "b"
+               })
+
+      assert "user_id est requis" in errs
+    end
+
     test "rejects missing title and body" do
       assert {:error, :validation, errs} =
                Notifications.create(%{
