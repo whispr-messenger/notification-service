@@ -33,6 +33,7 @@ GET /api/v1/health
 { "status": "ok" }
 ```
 
+
 ---
 
 ## 2. `GET /api/v1/auth-check` — vérifie le JWT
