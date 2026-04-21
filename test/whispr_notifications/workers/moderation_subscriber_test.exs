@@ -69,6 +69,47 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
+  test "retry_connect stops the GenServer (supervisor will restart it)" do
+    pid = Process.whereis(ModerationSubscriber)
+    ref = Process.monitor(pid)
+    send(pid, :retry_connect)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1_000
+
+    # Wait for supervisor to restart the process
+    Process.sleep(200)
+    new_pid = Process.whereis(ModerationSubscriber)
+    assert is_pid(new_pid)
+    assert Process.alive?(new_pid)
+  end
+
+  test "routes blocked image appeal channels without crashing" do
+    pid = Process.whereis(ModerationSubscriber)
+    assert Process.alive?(pid)
+
+    for channel <- [
+          "whispr:moderation:blocked_image_approved",
+          "whispr:moderation:blocked_image_rejected"
+        ] do
+      payload =
+        Jason.encode!(%{
+          "appealId" => "appeal-1",
+          "userId" => "user-1",
+          "conversationId" => "conv-1",
+          "messageTempId" => "temp-1",
+          "reviewerNotes" => "ok"
+        })
+
+      send(
+        pid,
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: payload}}
+      )
+    end
+
+    Process.sleep(100)
+    assert Process.alive?(pid)
+  end
+
   test "routes to every moderation handler (happy payloads)" do
     pid = Process.whereis(ModerationSubscriber)
 
@@ -94,8 +135,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     for {channel, payload} <- routed do
       send(
         pid,
-        {:redix_pubsub, nil, nil, :message,
-         %{channel: channel, payload: Jason.encode!(payload)}}
+        {:redix_pubsub, nil, nil, :message, %{channel: channel, payload: Jason.encode!(payload)}}
       )
     end
 

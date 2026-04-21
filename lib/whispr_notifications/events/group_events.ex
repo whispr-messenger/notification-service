@@ -28,7 +28,11 @@ defmodule WhisprNotifications.Events.GroupEvents do
         type: :group,
         title: title,
         body: body,
-
+        context: %{
+          "group_id" => event.group_id,
+          "actor_id" => event.actor_id,
+          "action" => to_string(event.action)
+        }
       })
     if Filter.should_send?(notif) do
       {:ok, cache} = CacheManager.get_cache(event.user_id)

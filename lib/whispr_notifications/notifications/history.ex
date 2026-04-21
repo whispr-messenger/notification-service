@@ -13,7 +13,7 @@ defmodule WhisprNotifications.Notifications.History do
 
   defmodule Behaviour do
     @callback save(Notification.t()) :: :ok | {:error, term()}
-    @callback mark_read(String.t(), DateTime.t()) :: :ok | {:error, term()}
+    @callback mark_read(String.t(), DateTime.t()) :: :ok
     @callback list_for_user(String.t(), keyword()) :: [Notification.t()]
   end
 

@@ -15,7 +15,9 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
     "whispr:moderation:sanction_lifted",
     "whispr:moderation:appeal_created",
     "whispr:moderation:appeal_resolved",
-    "whispr:moderation:threshold_reached"
+    "whispr:moderation:threshold_reached",
+    "whispr:moderation:blocked_image_approved",
+    "whispr:moderation:blocked_image_rejected"
   ]
 
   def start_link(opts) do
@@ -114,6 +116,12 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
 
   defp route_event("whispr:moderation:threshold_reached", payload),
     do: ModerationEvents.handle_threshold_warning(payload)
+
+  defp route_event("whispr:moderation:blocked_image_approved", payload),
+    do: ModerationEvents.handle_blocked_image_decision(payload, "approved")
+
+  defp route_event("whispr:moderation:blocked_image_rejected", payload),
+    do: ModerationEvents.handle_blocked_image_decision(payload, "rejected")
 
   defp route_event(channel, _payload),
     do: Logger.warning("[ModerationSubscriber] Unknown channel: #{channel}")

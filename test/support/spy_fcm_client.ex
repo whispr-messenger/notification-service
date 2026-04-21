@@ -11,6 +11,10 @@ defmodule WhisprNotifications.Test.SpyFcmClient do
       Kernel.send(test_pid, {:fcm_send, device, payload})
     end
 
-    :ok
+    case Application.get_env(:whispr_notification, :fcm_spy_response) do
+      nil -> :ok
+      fun when is_function(fun, 0) -> fun.()
+      value -> value
+    end
   end
 end

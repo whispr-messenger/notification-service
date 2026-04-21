@@ -45,11 +45,9 @@ defmodule WhisprNotifications.Auth.Jwks do
 
   @spec fetch_keys(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
   def fetch_keys(url) when is_binary(url) do
-    case Req.get(url,
-           receive_timeout: 15_000,
-           retry: :transient,
-           max_retries: 2
-         ) do
+    http_get = Application.get_env(:whispr_notification, :jwks_http_get, &default_get/1)
+
+    case http_get.(url) do
       {:ok, %{status: 200, body: body}} ->
         body_json = if is_binary(body), do: body, else: Jason.encode!(body)
         keys_from_json(body_json)
@@ -60,5 +58,9 @@ defmodule WhisprNotifications.Auth.Jwks do
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  defp default_get(url) do
+    Req.get(url, receive_timeout: 15_000, retry: :transient, max_retries: 2)
   end
 end

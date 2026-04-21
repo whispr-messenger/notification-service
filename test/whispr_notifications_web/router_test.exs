@@ -6,7 +6,9 @@ defmodule WhisprNotificationsWeb.RouterTest do
   use WhisprNotifications.DataCase, async: true
   import Plug.Test
 
-  alias WhisprNotificationsWeb.{MuteController, Router}
+  alias WhisprNotificationsWeb.Router
+
+  defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
 
   test "GET /notification/api/v1/health returns 200" do
     conn = :get |> conn("/notification/api/v1/health") |> Router.call([])
@@ -14,33 +16,39 @@ defmodule WhisprNotificationsWeb.RouterTest do
   end
 
   test "GET /notification/api/settings/:id returns 200" do
-    conn = :get |> conn("/notification/api/settings/u-alt") |> Router.call([])
+    conn = :get |> conn("/notification/api/settings/#{unique_id("u")}") |> Router.call([])
     assert conn.status == 200
   end
 
   test "PUT /notification/api/settings/:id returns 204" do
     conn =
       :put
-      |> conn("/notification/api/settings/u-alt", %{"foo" => "bar"})
+      |> conn("/notification/api/settings/#{unique_id("u")}", %{"foo" => "bar"})
       |> Router.call([])
 
     assert conn.status == 204
   end
 
   test "POST /notification/api/conversations/:id/mute returns 204" do
+    conv_id = unique_id("conv")
+    user_id = unique_id("u")
+
     conn =
       :post
-      |> conn("/notification/api/conversations/conv-1/mute", %{"user_id" => "u-1"})
+      |> conn("/notification/api/conversations/#{conv_id}/mute", %{"user_id" => user_id})
       |> Router.call([])
 
     assert conn.status == 204
   end
 
-  test "DELETE mute via controller directly (alt scope parity)" do
+  test "DELETE /notification/api/conversations/:id/mute returns 204" do
+    conv_id = unique_id("conv")
+    user_id = unique_id("u")
+
     conn =
       :delete
-      |> conn("/notification/api/conversations/conv-1/mute")
-      |> MuteController.unmute(%{"conversation_id" => "conv-1", "user_id" => "u-1"})
+      |> conn("/notification/api/conversations/#{conv_id}/mute", %{"user_id" => user_id})
+      |> Router.call([])
 
     assert conn.status == 204
   end

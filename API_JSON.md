@@ -5,12 +5,14 @@ Préfixes équivalents :
 - `/api/...` (gateway qui strippe le préfixe `notification`)
 - `/notification/api/...` (gateway qui transmet le chemin complet)
 
-Toutes les routes sauf `/v1/health` requièrent l'en-tête :
+Les routes `/v1/auth-check` et `/v1/notifications` requièrent l'en-tête :
 
 ```
 Authorization: Bearer <jwt_es256>
 Content-Type: application/json
 ```
+
+Les routes `/settings` et `/conversations/*/mute` ne requièrent pas d'authentification JWT actuellement.
 
 Les identifiants (`user_id`, `conversation_id`) sont typés `string` côté BDD —
 des UUIDs sont attendus en prod mais n'importe quelle chaîne est acceptée.
@@ -117,20 +119,7 @@ Formats acceptés :
 - heures : `"HH:MM:SS"` (parsé par Ecto en `Time`)
 - strings : `language`, `timezone` (fuseau IANA valide, ex. `"Europe/Paris"`)
 
-**Réponse 200** — renvoie l'état final :
-```json
-{
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "language": "fr",
-  "timezone": "Europe/Paris",
-  "message_push_enabled": true,
-  "message_email_enabled": false,
-  "system_push_enabled": true,
-  "marketing_push_enabled": false,
-  "quiet_hours_start": "22:00:00",
-  "quiet_hours_end": "07:00:00"
-}
-```
+**Réponse 204** — mise à jour effectuée avec succès, sans corps de réponse.
 
 **Réponse 422** (validation Ecto, ex. `timezone` invalide) :
 ```json

@@ -1,6 +1,6 @@
 # Whispr Messenger - Notification Microservice
 
-[![Quality Gate Status]]
+[![App Status](https://argocd.whispr.epitech.beer/api/badge?name=notification-service&revision=true&showAppName=true)](https://argocd.whispr.epitech.beer/applications/notification-service)
 
 ## Overview
 
@@ -75,10 +75,11 @@ mix ecto.migrate
 ## Configuration
 
 Variables à définir dans `.env` :
-- `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`
+- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
-- `FCM_KEY`, `APNS_CERT`, `APNS_KEY`
-- `ISTIO_ENABLED`, `GRPC_PORT`, `REST_PORT`
+- `FCM_PROJECT_ID`, `FCM_JSON_KEYFILE`, `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`
+- `GRPC_PORT`, `PORT`
+- `AUTH_SERVICE_HOST`, `AUTH_SERVICE_PORT` — coordonnées gRPC du service d'authentification
 
 ## Usage
 
@@ -140,5 +141,5 @@ Projet Whispr : usage privé, tous droits réservés.
 **Développé par l'équipe Whispr**
 
 Version : 1.0.0  
-Dernière mise à jour – 14/11/2025
+Dernière mise à jour – 18/04/2026
 

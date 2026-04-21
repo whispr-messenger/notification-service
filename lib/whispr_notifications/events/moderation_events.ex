@@ -9,6 +9,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
   - whispr:moderation:appeal_created
   - whispr:moderation:appeal_resolved
   - whispr:moderation:threshold_reached
+  - whispr:moderation:blocked_image_approved
+  - whispr:moderation:blocked_image_rejected
   """
 
   require Logger
@@ -181,5 +183,61 @@ defmodule WhisprNotifications.Events.ModerationEvents do
     Logger.info("[ModerationEvents] Threshold warning for user #{payload["reported_user_id"]}")
 
     result
+  end
+
+  @doc "Notify a user when their blocked image appeal has been reviewed."
+  @spec handle_blocked_image_decision(map(), String.t()) ::
+          {:ok, Notification.t()} | {:error, term()}
+  def handle_blocked_image_decision(payload, decision)
+      when decision in ["approved", "rejected"] do
+    {title, body} =
+      case decision do
+        "approved" ->
+          {"Image appeal approved",
+           "Your contested image has been approved and will be delivered."}
+
+        "rejected" ->
+          {"Image appeal rejected",
+           String.trim(
+             "Your contested image has been rejected. #{payload["reviewerNotes"] || ""}"
+           )}
+      end
+
+    context =
+      %{
+        "event" => "blocked_image_decision",
+        "appealId" => payload["appealId"],
+        "decision" => decision,
+        "messageTempId" => payload["messageTempId"],
+        "conversationId" => payload["conversationId"],
+        "reason" => payload["reviewerNotes"]
+      }
+      |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+      |> Map.new()
+
+    case payload["userId"] do
+      user_id when user_id in [nil, ""] ->
+        Logger.warning(
+          "[ModerationEvents] Blocked image appeal #{decision} notification not created: missing userId (appeal=#{payload["appealId"]})"
+        )
+
+        {:error, :missing_user_id}
+
+      user_id ->
+        result =
+          Notifications.create(%{
+            user_id: user_id,
+            type: :system,
+            title: title,
+            body: body,
+            context: context
+          })
+
+        Logger.info(
+          "[ModerationEvents] Blocked image appeal #{decision} notification sent to user #{user_id} (appeal=#{payload["appealId"]})"
+        )
+
+        result
+    end
   end
 end
