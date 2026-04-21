@@ -3,7 +3,7 @@ defmodule WhisprNotifications.Repo.Migrations.CreateNotificationHistory do
 
   def change do
     create table(:notification_history, primary_key: false) do
-      add :id, :binary_id, primary_key: true
+      add :id, :string, primary_key: true
       add :user_id, :string, null: false
       add :conversation_id, :string
       add :type, :string, null: false

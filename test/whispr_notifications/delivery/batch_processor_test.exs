@@ -10,6 +10,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
     original_spy_pid = Application.get_env(:whispr_notification, :apns_spy_pid)
     original_spy_resp = Application.get_env(:whispr_notification, :apns_spy_response)
     original_fcm_pid = Application.get_env(:whispr_notification, :fcm_spy_pid)
+    original_fcm_resp = Application.get_env(:whispr_notification, :fcm_spy_response)
 
     Application.put_env(
       :whispr_notification,
@@ -26,6 +27,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
     Application.put_env(:whispr_notification, :apns_spy_pid, self())
     Application.put_env(:whispr_notification, :fcm_spy_pid, self())
     Application.delete_env(:whispr_notification, :apns_spy_response)
+    Application.delete_env(:whispr_notification, :fcm_spy_response)
 
     on_exit(fn ->
       restore(:apns_client_mod, original_apns)
@@ -33,6 +35,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
       restore(:apns_spy_pid, original_spy_pid)
       restore(:apns_spy_response, original_spy_resp)
       restore(:fcm_spy_pid, original_fcm_pid)
+      restore(:fcm_spy_response, original_fcm_resp)
     end)
 
     :ok
@@ -103,6 +106,42 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
       cache = NotificationFixtures.build_device_cache()
 
       assert :ok == BatchProcessor.deliver(notif, cache)
+    end
+  end
+
+  describe "deliver/2 FCM error behaviour" do
+    test "returns :ok even when FCM sends fail" do
+      Application.put_env(
+        :whispr_notification,
+        :fcm_spy_response,
+        {:error, :service_unavailable}
+      )
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      assert :ok == BatchProcessor.deliver(notif, cache)
+    end
+
+    test "retries on FCM failure" do
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      Application.put_env(:whispr_notification, :fcm_spy_response, fn ->
+        call = Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+        if call == 0, do: {:error, :service_unavailable}, else: :ok
+      end)
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      BatchProcessor.deliver(notif, cache)
+
+      assert_receive {:fcm_send, _, _}
+      assert_receive {:fcm_send, _, _}
+
+      Agent.stop(counter)
     end
   end
 

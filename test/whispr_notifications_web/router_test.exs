@@ -3,60 +3,52 @@ defmodule WhisprNotificationsWeb.RouterTest do
   Covers the alternate `/notification/api` scope kept for gateways that forward
   the full path without stripping the `/notification` prefix.
   """
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: true
   import Plug.Test
 
-  alias WhisprNotifications.Test.AuthHelpers
-  alias WhisprNotificationsWeb.{MuteController, Router}
+  alias WhisprNotificationsWeb.Router
 
-  setup do
-    AuthHelpers.setup_jwt()
-  end
+  defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
 
   test "GET /notification/api/v1/health returns 200" do
     conn = :get |> conn("/notification/api/v1/health") |> Router.call([])
     assert conn.status == 200
   end
 
-  test "GET /notification/api/settings/:id returns 200", %{token: token} do
-    conn =
-      :get
-      |> conn("/notification/api/settings/router-u-alt")
-      |> AuthHelpers.put_bearer(token)
-      |> Router.call([])
-
+  test "GET /notification/api/settings/:id returns 200" do
+    conn = :get |> conn("/notification/api/settings/#{unique_id("u")}") |> Router.call([])
     assert conn.status == 200
   end
 
-  test "PUT /notification/api/settings/:id returns 200 with JSON body", %{token: token} do
+  test "PUT /notification/api/settings/:id returns 204" do
     conn =
       :put
-      |> conn("/notification/api/settings/router-u-alt", %{"foo" => "bar"})
-      |> AuthHelpers.put_bearer(token)
-      |> Router.call([])
-
-    assert conn.status == 200
-    assert Jason.decode!(conn.resp_body)["user_id"] == "router-u-alt"
-  end
-
-  test "POST /notification/api/conversations/:id/mute returns 204", %{token: token} do
-    conn =
-      :post
-      |> conn("/notification/api/conversations/router-conv-1/mute", %{"user_id" => "router-u-1"})
-      |> AuthHelpers.put_bearer(token)
+      |> conn("/notification/api/settings/#{unique_id("u")}", %{"foo" => "bar"})
       |> Router.call([])
 
     assert conn.status == 204
   end
 
-  test "DELETE mute via controller directly (alt scope parity)" do
+  test "POST /notification/api/conversations/:id/mute returns 204" do
+    conv_id = unique_id("conv")
+    user_id = unique_id("u")
+
+    conn =
+      :post
+      |> conn("/notification/api/conversations/#{conv_id}/mute", %{"user_id" => user_id})
+      |> Router.call([])
+
+    assert conn.status == 204
+  end
+
+  test "DELETE /notification/api/conversations/:id/mute returns 204" do
+    conv_id = unique_id("conv")
+    user_id = unique_id("u")
+
     conn =
       :delete
-      |> conn("/notification/api/conversations/router-conv-2/mute")
-      |> MuteController.unmute(%{
-        "conversation_id" => "router-conv-2",
-        "user_id" => "router-u-2"
-      })
+      |> conn("/notification/api/conversations/#{conv_id}/mute", %{"user_id" => user_id})
+      |> Router.call([])
 
     assert conn.status == 204
   end

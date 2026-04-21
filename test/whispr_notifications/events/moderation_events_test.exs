@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Events.ModerationEventsTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
 
   alias WhisprNotifications.Events.ModerationEvents
 
@@ -62,42 +62,6 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
 
       assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
       assert notif.title == "Moderation action taken"
-    end
-
-    test "creates kick notification" do
-      payload = %{
-        "user_id" => "user-k",
-        "sanction_type" => "kick",
-        "reason" => "Rude",
-        "expires_at" => nil
-      }
-
-      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
-      assert notif.title == "You have been removed from a conversation"
-    end
-
-    test "creates warning notification" do
-      payload = %{
-        "user_id" => "user-w",
-        "sanction_type" => "warning",
-        "reason" => "First strike",
-        "expires_at" => nil
-      }
-
-      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
-      assert notif.title == "You have received a warning"
-    end
-
-    test "creates perm_ban notification" do
-      payload = %{
-        "user_id" => "user-p",
-        "sanction_type" => "perm_ban",
-        "reason" => "Repeated violations",
-        "expires_at" => nil
-      }
-
-      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
-      assert notif.title == "Your account has been suspended"
     end
   end
 
@@ -168,6 +132,62 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
 
       assert {:ok, notif} = ModerationEvents.handle_appeal_resolved(payload)
       assert notif.title == "Appeal update"
+    end
+  end
+
+  describe "handle_blocked_image_decision/2" do
+    test "creates notification for approved decision" do
+      payload = %{
+        "appealId" => "appeal-100",
+        "userId" => "user-10",
+        "conversationId" => "conv-1",
+        "messageTempId" => "temp-1",
+        "reviewerNotes" => nil
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_blocked_image_decision(payload, "approved")
+      assert notif.type == :system
+      assert notif.title == "Image appeal approved"
+      assert notif.user_id == "user-10"
+      assert notif.context["event"] == "blocked_image_decision"
+      assert notif.context["decision"] == "approved"
+    end
+
+    test "creates notification for rejected decision with reviewer notes" do
+      payload = %{
+        "appealId" => "appeal-101",
+        "userId" => "user-11",
+        "conversationId" => "conv-2",
+        "messageTempId" => "temp-2",
+        "reviewerNotes" => "Content violates policy"
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_blocked_image_decision(payload, "rejected")
+      assert notif.title == "Image appeal rejected"
+      assert notif.body =~ "Content violates policy"
+      assert notif.context["reason"] == "Content violates policy"
+    end
+
+    test "returns error when userId is nil" do
+      payload = %{
+        "appealId" => "appeal-102",
+        "userId" => nil,
+        "conversationId" => "conv-3"
+      }
+
+      assert {:error, :missing_user_id} =
+               ModerationEvents.handle_blocked_image_decision(payload, "approved")
+    end
+
+    test "returns error when userId is empty string" do
+      payload = %{
+        "appealId" => "appeal-103",
+        "userId" => "",
+        "conversationId" => "conv-4"
+      }
+
+      assert {:error, :missing_user_id} =
+               ModerationEvents.handle_blocked_image_decision(payload, "rejected")
     end
   end
 

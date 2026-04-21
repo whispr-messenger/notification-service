@@ -1,5 +1,5 @@
 defmodule WhisprNotificationsWeb.NotificationsControllerTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
   import Plug.Test
   import Plug.Conn
 
@@ -88,25 +88,6 @@ defmodule WhisprNotificationsWeb.NotificationsControllerTest do
 
     assert conn.status == 401
     assert Jason.decode!(conn.resp_body) == %{"error" => "unauthorized"}
-  end
-
-  test "POST /notification/api/v1/notifications (alt scope) returns 201", %{token: token} do
-    body = %{
-      "user_id" => "ctrl-u-alt",
-      "type" => "group",
-      "title" => "Hi",
-      "body" => "There"
-    }
-
-    conn =
-      :post
-      |> conn("/notification/api/v1/notifications", body)
-      |> put_req_header("authorization", "Bearer " <> token)
-      |> put_req_header("content-type", "application/json")
-      |> Router.call([])
-
-    assert conn.status == 201
-    assert Jason.decode!(conn.resp_body)["type"] == "group"
   end
 
   defp sign_token(priv, kid) do

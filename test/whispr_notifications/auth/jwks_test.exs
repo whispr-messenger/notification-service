@@ -1,8 +1,22 @@
 defmodule WhisprNotifications.Auth.JwksTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias WhisprNotifications.Auth.Jwks
   alias WhisprNotifications.Test.ES256JwtFixtures
+
+  setup do
+    original = Application.get_env(:whispr_notification, :jwks_http_get)
+
+    on_exit(fn ->
+      if original do
+        Application.put_env(:whispr_notification, :jwks_http_get, original)
+      else
+        Application.delete_env(:whispr_notification, :jwks_http_get)
+      end
+    end)
+
+    :ok
+  end
 
   describe "keys_from_json/1" do
     test "parses a valid JWKS and indexes by kid" do
@@ -41,31 +55,43 @@ defmodule WhisprNotifications.Auth.JwksTest do
     end
   end
 
-  describe "fetch_keys/2" do
-    test "parses keys from a 200 response whose body is a decoded map" do
-      body = %{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]}
-      http_get = fn _url -> {:ok, %{status: 200, body: body}} end
+  describe "fetch_keys/1" do
+    test "returns key map on HTTP 200 with valid JWKS body" do
+      jwks_body = %{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]}
 
-      assert {:ok, map} = Jwks.fetch_keys("http://auth/jwks", http_get)
+      Application.put_env(:whispr_notification, :jwks_http_get, fn _url ->
+        {:ok, %{status: 200, body: Jason.encode!(jwks_body)}}
+      end)
+
+      assert {:ok, map} = Jwks.fetch_keys("http://fake/jwks")
       assert Map.has_key?(map, ES256JwtFixtures.primary_kid())
     end
 
-    test "parses keys from a 200 response whose body is a JSON string" do
-      body_json = Jason.encode!(%{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]})
-      http_get = fn _url -> {:ok, %{status: 200, body: body_json}} end
+    test "handles pre-decoded map body from HTTP client" do
+      jwks_body = %{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]}
 
-      assert {:ok, map} = Jwks.fetch_keys("http://auth/jwks", http_get)
+      Application.put_env(:whispr_notification, :jwks_http_get, fn _url ->
+        {:ok, %{status: 200, body: jwks_body}}
+      end)
+
+      assert {:ok, map} = Jwks.fetch_keys("http://fake/jwks")
       assert Map.has_key?(map, ES256JwtFixtures.primary_kid())
     end
 
-    test "returns {:http, status} on non-200 responses" do
-      http_get = fn _ -> {:ok, %{status: 500}} end
-      assert {:error, {:http, 500}} = Jwks.fetch_keys("http://auth/jwks", http_get)
+    test "returns HTTP error tuple on non-200 status" do
+      Application.put_env(:whispr_notification, :jwks_http_get, fn _url ->
+        {:ok, %{status: 503, body: ""}}
+      end)
+
+      assert {:error, {:http, 503}} = Jwks.fetch_keys("http://fake/jwks")
     end
 
-    test "bubbles up transport errors" do
-      http_get = fn _ -> {:error, :econnrefused} end
-      assert {:error, :econnrefused} = Jwks.fetch_keys("http://auth/jwks", http_get)
+    test "returns error on HTTP client failure" do
+      Application.put_env(:whispr_notification, :jwks_http_get, fn _url ->
+        {:error, :timeout}
+      end)
+
+      assert {:error, :timeout} = Jwks.fetch_keys("http://fake/jwks")
     end
   end
 end

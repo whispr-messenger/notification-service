@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Notifications.FilterTest do
-  use ExUnit.Case, async: true
+  use WhisprNotifications.DataCase, async: true
 
   alias WhisprNotifications.Notifications.Filter
   alias WhisprNotifications.Test.NotificationFixtures
