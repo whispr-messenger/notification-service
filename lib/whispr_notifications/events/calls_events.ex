@@ -35,7 +35,9 @@ defmodule WhisprNotifications.Events.CallsEvents do
       "type" => type
     }
 
-    Enum.each(participants, fn participant_id when is_binary(participant_id) ->
+    participants
+    |> Enum.filter(&is_binary/1)
+    |> Enum.each(fn participant_id ->
       broadcast_to_user(participant_id, "incoming_call", data)
 
       if participant_id != initiator_id do
@@ -98,9 +100,9 @@ defmodule WhisprNotifications.Events.CallsEvents do
       "end_reason" => reason
     }
 
-    Enum.each(participants, fn participant_id when is_binary(participant_id) ->
-      broadcast_to_user(participant_id, "call_ended", data)
-    end)
+    participants
+    |> Enum.filter(&is_binary/1)
+    |> Enum.each(&broadcast_to_user(&1, "call_ended", data))
 
     :ok
   end
