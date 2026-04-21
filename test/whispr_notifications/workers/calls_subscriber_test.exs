@@ -183,8 +183,7 @@ defmodule WhisprNotifications.Workers.CallsSubscriberTest do
 
     send(
       pid,
-      {:redix_pubsub, nil, nil, :message,
-       %{channel: "whispr:calls:initiated", payload: payload}}
+      {:redix_pubsub, nil, nil, :message, %{channel: "whispr:calls:initiated", payload: payload}}
     )
 
     Process.sleep(100)
@@ -202,8 +201,7 @@ defmodule WhisprNotifications.Workers.CallsSubscriberTest do
 
     send(
       pid,
-      {:redix_pubsub, nil, nil, :message,
-       %{channel: "whispr:calls:accepted", payload: payload}}
+      {:redix_pubsub, nil, nil, :message, %{channel: "whispr:calls:accepted", payload: payload}}
     )
 
     # GenServer should remain alive after async Task completes
