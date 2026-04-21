@@ -29,30 +29,32 @@ when picking up and completing a Jira ticket for this repository.
 ```bash
 git checkout main
 git pull origin main
-git checkout -b <TICKET-KEY>-<short-kebab-description>
+git worktree add .worktrees/<TICKET-KEY>-<short-kebab-description> -b <TICKET-KEY>-<short-kebab-description>
 ```
+
+Then use the `EnterWorktree` tool to switch into the worktree:
+
+```json
+// EnterWorktree
+{ "path": ".worktrees/<TICKET-KEY>-<short-kebab-description>" }
+```
+
+All subsequent work (edits, commits, pushes) happens inside the worktree. Use `ExitWorktree` when done.
 
 Branch naming convention: `WHISPR-XXX-short-description-of-the-fix`
 
 Example: `WHISPR-449-apns-push-notifications`
 
+Worktrees are created in `.worktrees/` (repo-local, git-ignored) to keep the parent directory clean.
+
 ---
 
 ## 3. Implement the fix
 
-1. **Explore first** — run `mcp__gitnexus__query` with the ticket's key concepts to find relevant execution flows before opening any file:
-   ```json
-   { "query": "<ticket concept e.g. 'conversation message search'>", "limit": 5 }
-   ```
-2. **Check impact before editing** — for every symbol you plan to modify, run `mcp__gitnexus__impact` and report the blast radius to the user before touching the code:
-   ```json
-   { "target": "<symbolName>", "direction": "upstream" }
-   ```
-   Stop and warn the user if the result is HIGH or CRITICAL risk.
-3. Read all relevant files before modifying anything.
-4. Make the smallest change that fully addresses the ticket.
-5. Do not refactor unrelated code or change formatting outside the touched lines.
-6. Prefer editing existing files over creating new ones.
+1. Read all relevant files before modifying anything.
+2. Make the smallest change that fully addresses the ticket.
+3. Do not refactor unrelated code or change formatting outside the touched lines.
+4. Prefer editing existing files over creating new ones.
 
 ---
 
@@ -125,11 +127,32 @@ Commit message format (Conventional Commits):
 - **type**: `fix`, `feat`, `refactor`, `test`, `docs`, `chore`
 - **scope**: module name, e.g. `conversations`, `messages`, `auth`
 - Do **not** mention Claude, AI, or any tooling in the commit message.
+- Do **not** use `--no-verify` to skip hooks.
 
 Example:
 ```
 feat(conversations): implement conversation search endpoint
 ```
+
+### Impact on release versioning
+
+When `deploy/preprod` is merged into `main`, the `release.yml` workflow
+automatically creates a Git tag and GitHub Release. The version number follows
+**Semantic Versioning** and is determined by scanning commit messages since the
+last tag:
+
+| Commit pattern | Version bump | Example |
+|----------------|-------------|---------|
+| `<type>(<scope>)!:` or body contains `BREAKING CHANGE` | **major** (`x.0.0`) | `feat(redis)!: remove legacy connection mode` |
+| `feat(<scope>):` | **minor** (`0.x.0`) | `feat(notifications): add APNs push support` |
+| Any other type (`fix`, `refactor`, `test`, `docs`, `chore`, …) | **patch** (`0.0.x`) | `fix(redis): pass username in AUTH command` |
+
+The highest bump wins: if the range contains both a `feat` and a `fix`, the
+version bumps **minor**. If any commit is a breaking change, it bumps **major**.
+
+> **Rule of thumb**: use `feat` only for new user-facing functionality, not for
+> internal refactors or test additions. A misplaced `feat` prefix triggers a
+> minor bump instead of a patch.
 
 ---
 
@@ -141,7 +164,16 @@ git push -u origin <branch-name>
 
 After every push to an existing PR branch, **immediately**:
 
-1. Copilot Code Review is triggered automatically by CI on each push — do **not** manually request a new review unless explicitly asked by maintainers or if the automation fails.
+1. Request a Copilot review using `mcp__github__request_copilot_review`:
+
+```json
+// mcp__github__request_copilot_review
+{
+  "owner": "whispr-messenger",
+  "repo": "notification-service",
+  "pullNumber": <number>
+}
+```
 
 2. CI runs `mix compile --warnings-as-errors` — any warning is a build failure. Fix all compiler warnings before pushing.
 
@@ -169,6 +201,24 @@ Use `mcp__github__create_pull_request`:
   "body": "## Summary\n- bullet 1\n- bullet 2\n\n## Test plan\n- [ ] mix test green\n- [ ] mix format --check-formatted clean\n- [ ] mix credo --strict clean\n\nCloses <TICKET-KEY>"
 }
 ```
+
+After creation, request a Copilot review immediately using `mcp__github__request_copilot_review`:
+
+```json
+{
+  "owner": "whispr-messenger",
+  "repo": "notification-service",
+  "pullNumber": <number>
+}
+```
+
+Then check CI with:
+
+```bash
+gh pr checks <PR-number> --repo whispr-messenger/notification-service
+```
+
+Fix any failing checks before moving to §8b.
 
 ---
 
@@ -199,9 +249,31 @@ Filter to threads where **`is_resolved: false`** and **`is_outdated: false`**.
 | **Non-blocking** | Should be fixed or acknowledged; declining is acceptable with rationale |
 | *(unlabelled)* | Style/tidiness — fix if trivial, acknowledge otherwise |
 
+### Push and re-check
+
+After addressing all open threads, push:
+
+```bash
+git push origin <branch-name>
+```
+
+Then immediately request a new Copilot review:
+
+```json
+// mcp__github__request_copilot_review
+{
+  "owner": "whispr-messenger",
+  "repo": "notification-service",
+  "pullNumber": <number>
+}
+```
+
+Copilot will review the updated diff and may open new threads. Re-run this step
+until `get_review_comments` returns no unresolved, non-outdated threads.
+
 ### Merge gate
 
-- All **blocking** threads resolved
+- All **blocking** threads resolved (fixed or declined with justification)
 - All **non-blocking** threads acknowledged
 - CI green (`gh pr checks <PR-number> --repo whispr-messenger/notification-service`)
 
@@ -231,12 +303,18 @@ Use `mcp__atlassian__transitionJiraIssue` with the transition whose `name` is
 
 ---
 
-## 11. Return to main
+## 11. Return to main and clean up
+
+Use `ExitWorktree` to leave the worktree, then:
 
 ```bash
 git checkout main
 git pull origin main
+git worktree remove .worktrees/<TICKET-KEY>-<short-kebab-description>
+git branch -d <TICKET-KEY>-<short-kebab-description>
 ```
+
+`git worktree remove` deletes the `.worktrees/<branch>` directory. `git branch -d` removes the local branch (the remote branch is deleted automatically by GitHub after squash merge).
 
 ---
 
@@ -261,11 +339,36 @@ These IDs are stable but can be verified with
 - `maxResults`: **number**, not string (e.g. `10`, not `"10"`)
 - `fields`: **array**, not string (e.g. `["summary", "status"]`, not `"summary,status"`)
 
+### Fetching the sprint ID for issue creation
+
+`mcp__atlassian__createJiraIssue` requires a **numeric** sprint ID in `additional_fields.customfield_10020`, not a name string.
+
+To get it, query an existing issue from the target sprint and read `customfield_10020[0].id`:
+
+```json
+// mcp__atlassian__searchJiraIssuesUsingJql
+{
+  "jql": "project = WHISPR AND sprint in openSprints()",
+  "fields": ["customfield_10020"],
+  "maxResults": 1
+}
+// → customfield_10020[0].id  (e.g. 167 for Sprint 5)
+```
+
+Then pass it as a number in `createJiraIssue`:
+
+```json
+// mcp__atlassian__createJiraIssue
+{
+  "additional_fields": { "customfield_10020": 167 }
+}
+```
+
 ### Current sprint
 
 | Sprint | ID | Board ID |
 |--------|----|----------|
-| Sprint 6 | `200` | `34` |
+| Sprint 8 | `299` | `34` |
 
 ### Tools that do NOT work
 
@@ -295,34 +398,3 @@ PostgreSQL via Ecto. Use `Repo.transaction/2` for multi-step operations. Never i
 
 Tests use `Ecto.Adapters.SQL.Sandbox` in `:manual` checkout mode. Each test that touches the DB must call `Ecto.Adapters.SQL.Sandbox.checkout(WhisprNotification.Repo)`.
 
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **notification-service**. Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-
-## Tools Quick Reference
-
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "message search"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "get_conversation"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/notification-service/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/notification-service/clusters` | All functional areas |
-| `gitnexus://repo/notification-service/processes` | All execution flows |
-
-<!-- gitnexus:end -->
