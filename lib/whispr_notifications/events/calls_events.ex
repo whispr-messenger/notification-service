@@ -57,7 +57,7 @@ defmodule WhisprNotifications.Events.CallsEvents do
 
   def handle_initiated(payload) do
     Logger.warning(
-      "[CallsEvents] Skipping :initiated event — missing participant_ids: #{inspect(payload)}"
+      "[CallsEvents] Skipping :initiated event - missing participant_ids: #{inspect(payload)}"
     )
 
     :ok
