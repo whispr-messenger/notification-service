@@ -14,17 +14,16 @@ defmodule WhisprNotificationsWeb.Router do
   scope "/api", WhisprNotificationsWeb do
     pipe_through(:api)
 
-    get("/v1/health", HealthController, :live)
-  end
-
-  scope "/api", WhisprNotificationsWeb do
-    pipe_through([:api, :jwt_authenticated])
-
     resources("/settings", SettingsController, only: [:show, :update])
 
     post("/conversations/:conversation_id/mute", MuteController, :mute)
     delete("/conversations/:conversation_id/mute", MuteController, :unmute)
 
+    get("/v1/health", HealthController, :live)
+  end
+
+  scope "/api", WhisprNotificationsWeb do
+    pipe_through([:api, :jwt_authenticated])
     get("/v1/auth-check", AuthCheckController, :show)
     post("/v1/notifications", NotificationsController, :create)
   end
@@ -34,17 +33,16 @@ defmodule WhisprNotificationsWeb.Router do
   scope "/notification/api", WhisprNotificationsWeb do
     pipe_through(:api)
 
-    get("/v1/health", HealthController, :live)
-  end
-
-  scope "/notification/api", WhisprNotificationsWeb do
-    pipe_through([:api, :jwt_authenticated])
-
     resources("/settings", SettingsController, only: [:show, :update])
 
     post("/conversations/:conversation_id/mute", MuteController, :mute)
     delete("/conversations/:conversation_id/mute", MuteController, :unmute)
 
+    get("/v1/health", HealthController, :live)
+  end
+
+  scope "/notification/api", WhisprNotificationsWeb do
+    pipe_through([:api, :jwt_authenticated])
     get("/v1/auth-check", AuthCheckController, :show)
     post("/v1/notifications", NotificationsController, :create)
   end

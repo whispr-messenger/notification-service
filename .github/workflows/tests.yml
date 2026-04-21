@@ -38,7 +38,7 @@ jobs:
       - name: Generate ephemeral test credentials
         run: |
           {
-            echo "POSTGRES_USER=ci_test_user"
+            echo "POSTGRES_USER=testuser_$(openssl rand -hex 4)"
             echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)"
             echo "POSTGRES_DB=whispr_notification_test"
           } >> "$GITHUB_ENV"

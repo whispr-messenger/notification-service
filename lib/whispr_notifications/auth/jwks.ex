@@ -41,15 +41,13 @@ defmodule WhisprNotifications.Auth.Jwks do
 
   @doc """
   Fetches JWKS from `url` (HTTP GET). Returns the same map shape as `keys_from_json/1`.
-
-  The second arg is an injectable HTTP getter (`url -> {:ok, %{status, body}} | {:error, term}`).
-  Defaults to `Req.get/2` in production; override it in tests to avoid real HTTP calls.
   """
 
-  @spec fetch_keys(String.t(), (String.t() -> {:ok, map()} | {:error, term()})) ::
-          {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
-  def fetch_keys(url, http_get_fun \\ &default_get/1) when is_binary(url) do
-    case http_get_fun.(url) do
+  @spec fetch_keys(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
+  def fetch_keys(url) when is_binary(url) do
+    http_get = Application.get_env(:whispr_notification, :jwks_http_get, &default_get/1)
+
+    case http_get.(url) do
       {:ok, %{status: 200, body: body}} ->
         body_json = if is_binary(body), do: body, else: Jason.encode!(body)
         keys_from_json(body_json)

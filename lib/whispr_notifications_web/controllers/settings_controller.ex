@@ -18,8 +18,8 @@ defmodule WhisprNotificationsWeb.SettingsController do
     attrs = Map.drop(params, ["id"])
 
     case Manager.update_user_settings(user_id, attrs) do
-      {:ok, %UserSettings{} = settings} ->
-        json(conn, serialize(settings))
+      {:ok, %UserSettings{}} ->
+        send_resp(conn, 204, "")
 
       {:error, changeset} ->
         conn

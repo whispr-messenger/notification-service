@@ -4,6 +4,7 @@ defmodule WhisprNotifications.Test.NotificationFixtures do
   alias WhisprNotifications.Devices.DeviceCache
   alias WhisprNotifications.Notifications.Notification
 
+  @default_id "notif-test-001"
   @default_user_id "user-test-001"
 
   defp fake_token(prefix) do
@@ -12,7 +13,7 @@ defmodule WhisprNotifications.Test.NotificationFixtures do
 
   def build_notification(overrides \\ %{}) do
     defaults = %{
-      id: Ecto.UUID.generate(),
+      id: @default_id,
       user_id: @default_user_id,
       type: :message,
       title: "New message",

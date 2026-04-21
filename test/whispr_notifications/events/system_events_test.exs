@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Events.SystemEventsTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Events.SystemEvents
 
