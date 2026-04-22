@@ -3,16 +3,16 @@ defmodule WhisprNotifications.Events.GroupEvents do
   Événements liés aux groupes (ajout, changement de rôle, etc).
   """
 
-  alias WhisprNotifications.Notifications.{Notification, Filter, History}
-  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.CacheManager
+  alias WhisprNotifications.Notifications.{Filter, History, Notification}
 
   @type group_event :: %{
-    user_id: String.t(),
-    group_id: String.t(),
-    actor_id: String.t(),
-    action: :added | :removed | :role_changed
-  }
+          user_id: String.t(),
+          group_id: String.t(),
+          actor_id: String.t(),
+          action: :added | :removed | :role_changed
+        }
 
   @spec handle(group_event()) :: :ok
   def handle(event) do
@@ -22,6 +22,7 @@ defmodule WhisprNotifications.Events.GroupEvents do
         :removed -> {"Retiré de groupe", "Vous avez été retiré d'un groupe"}
         :role_changed -> {"Rôle mis à jour", "Votre rôle dans le groupe a changé"}
       end
+
     notif =
       Notification.new(%{
         user_id: event.user_id,
@@ -34,6 +35,7 @@ defmodule WhisprNotifications.Events.GroupEvents do
           "action" => to_string(event.action)
         }
       })
+
     if Filter.should_send?(notif) do
       {:ok, cache} = CacheManager.get_cache(event.user_id)
       :ok = BatchProcessor.deliver(notif, cache)

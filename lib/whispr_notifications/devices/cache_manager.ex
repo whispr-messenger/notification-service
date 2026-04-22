@@ -6,7 +6,7 @@ defmodule WhisprNotifications.Devices.CacheManager do
 
   use GenServer
 
-  alias WhisprNotifications.Devices.{DeviceCache, AuthClient}
+  alias WhisprNotifications.Devices.{AuthClient, DeviceCache}
 
   @type state :: %{String.t() => DeviceCache.t()}
 

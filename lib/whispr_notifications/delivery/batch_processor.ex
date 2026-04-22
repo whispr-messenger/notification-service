@@ -6,9 +6,9 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
   """
 
   alias WhisprNotifications.Badges
+  alias WhisprNotifications.Delivery.{ApnsClient, FcmClient, RetryManager}
   alias WhisprNotifications.Devices.DeviceCache
-  alias WhisprNotifications.Notifications.{Notification, Formatter}
-  alias WhisprNotifications.Delivery.{FcmClient, ApnsClient, RetryManager}
+  alias WhisprNotifications.Notifications.{Formatter, Notification}
 
   @spec deliver(Notification.t(), DeviceCache.t()) :: :ok
   def deliver(%Notification{} = notif, %DeviceCache{devices: devices}) do
