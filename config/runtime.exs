@@ -38,3 +38,11 @@ if config_env() == :prod do
   config :whispr_notification,
     grpc_port: String.to_integer(System.get_env("GRPC_PORT", "40011"))
 end
+
+# WHISPR-1068 : LOG_FORMAT=json → formatter JSON unifié avec les services
+# NestJS. Sinon on garde la sortie texte native pour `mix phx.server`.
+if System.get_env("LOG_FORMAT") == "json" do
+  config :logger, :console,
+    format: {WhisprNotifications.JsonFormatter, :format},
+    metadata: :all
+end
