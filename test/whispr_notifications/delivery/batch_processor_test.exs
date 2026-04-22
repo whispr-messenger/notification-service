@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Delivery.BatchProcessorTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Delivery.BatchProcessor
   alias WhisprNotifications.Test.NotificationFixtures
