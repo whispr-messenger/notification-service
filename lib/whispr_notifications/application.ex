@@ -22,7 +22,8 @@ defmodule WhisprNotifications.Application do
       {WhisprNotifications.Workers.CleanupWorker, []},
       {WhisprNotifications.Workers.MetricsWorker, []},
       {WhisprNotifications.Workers.ModerationSubscriber, []},
-      {WhisprNotifications.Workers.CallsSubscriber, []}
+      {WhisprNotifications.Workers.CallsSubscriber, []},
+      {WhisprNotifications.Workers.MessagingSubscriber, []}
     ]
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
