@@ -17,6 +17,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
 
   alias WhisprNotifications.Notifications
   alias WhisprNotifications.Notifications.Notification
+  alias WhisprNotificationsWeb.Endpoint
 
   @doc "Notify admins when a new report is created."
   @spec handle_report_created(map()) :: {:ok, Notification.t()} | {:error, term()}
@@ -206,6 +207,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         {:error, :missing_user_id}
 
       user_id ->
+        broadcast_blocked_image_decision(user_id, decision, payload)
+
         Notifications.create(%{
           user_id: user_id,
           type: :system,
@@ -217,6 +220,29 @@ defmodule WhisprNotifications.Events.ModerationEvents do
           context: "user #{user_id} (appeal=#{payload["appealId"]})"
         )
     end
+  end
+
+  defp broadcast_blocked_image_decision(user_id, "approved", payload) do
+    data = %{
+      "appealId" => payload["appealId"],
+      "decision" => "approved",
+      "messageTempId" => payload["messageTempId"],
+      "conversationId" => payload["conversationId"],
+      "reviewerNotes" => payload["reviewerNotes"]
+    }
+
+    Endpoint.broadcast("user:#{user_id}", "blocked_image_decision", data)
+  end
+
+  defp broadcast_blocked_image_decision(user_id, "rejected", payload) do
+    data = %{
+      "appealId" => payload["appealId"],
+      "decision" => "rejected",
+      "messageTempId" => payload["messageTempId"],
+      "reviewerNotes" => payload["reviewerNotes"]
+    }
+
+    Endpoint.broadcast("user:#{user_id}", "blocked_image_decision", data)
   end
 
   defp log_result({:ok, _} = result, label, opts) do
