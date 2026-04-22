@@ -7,7 +7,10 @@ defmodule WhisprNotifications.Notifications.Notification do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @primary_key {:id, :string, autogenerate: false}
+  # Column is `uuid` in the DB (see create_notification_history migration),
+  # so use Ecto.UUID to serialise the text-form UUID into the expected 16-byte
+  # binary. Declaring :string caused DBConnection.EncodeError on insert.
+  @primary_key {:id, Ecto.UUID, autogenerate: false}
 
   @types ~w(message group system)a
   @required_new_keys [:user_id, :type, :title, :body]
