@@ -4,7 +4,8 @@ defmodule WhisprNotifications.Test.NotificationFixtures do
   alias WhisprNotifications.Devices.DeviceCache
   alias WhisprNotifications.Notifications.Notification
 
-  @default_id "notif-test-001"
+  # Must be a valid UUID so it serialises against the `uuid` column type.
+  @default_id "11111111-1111-1111-1111-000000000001"
   @default_user_id "user-test-001"
 
   defp fake_token(prefix) do
