@@ -28,6 +28,7 @@ defmodule WhisprNotificationsWeb.Router do
 
     get("/v1/auth-check", AuthCheckController, :show)
     post("/v1/notifications", NotificationsController, :create)
+    get("/v1/badge", BadgeController, :show)
   end
 
   # ── /notification/api (when the gateway forwards the full path) ──
@@ -48,5 +49,6 @@ defmodule WhisprNotificationsWeb.Router do
 
     get("/v1/auth-check", AuthCheckController, :show)
     post("/v1/notifications", NotificationsController, :create)
+    get("/v1/badge", BadgeController, :show)
   end
 end
