@@ -83,4 +83,65 @@ defmodule WhisprNotificationsWeb.SettingsControllerTest do
     assert %{"errors" => errors} = Jason.decode!(conn.resp_body)
     assert Map.has_key?(errors, "quiet_hours_start")
   end
+
+  # WHISPR-1113: /v1/settings resolves the current user from the JWT claim
+  # that the Authenticate plug assigns to :jwt_sub, rather than pattern-
+  # matching on a path param (which was 500-ing when the gateway stripped
+  # the /:id segment).
+
+  test "show/2 without :id uses jwt_sub assign" do
+    user_id = unique_id("jwt-user")
+
+    conn =
+      :get
+      |> conn("/api/v1/settings")
+      |> Plug.Conn.assign(:jwt_sub, user_id)
+      |> SettingsController.show(%{})
+
+    assert conn.status == 200
+    decoded = Jason.decode!(conn.resp_body)
+    assert decoded["user_id"] == user_id
+  end
+
+  test "show/2 without :id and without jwt_sub returns 401" do
+    conn =
+      :get
+      |> conn("/api/v1/settings")
+      |> SettingsController.show(%{})
+
+    assert conn.status == 401
+    assert Jason.decode!(conn.resp_body) == %{"error" => "missing_user"}
+  end
+
+  test "update/2 without :id uses jwt_sub assign" do
+    user_id = unique_id("jwt-user")
+
+    conn =
+      :put
+      |> conn("/api/v1/settings")
+      |> Plug.Conn.assign(:jwt_sub, user_id)
+      |> SettingsController.update(%{"message_push_enabled" => false})
+
+    assert conn.status == 204
+
+    get_conn =
+      :get
+      |> conn("/api/v1/settings")
+      |> Plug.Conn.assign(:jwt_sub, user_id)
+      |> SettingsController.show(%{})
+
+    assert get_conn.status == 200
+    decoded = Jason.decode!(get_conn.resp_body)
+    assert decoded["user_id"] == user_id
+    assert decoded["message_push_enabled"] == false
+  end
+
+  test "update/2 without :id and without jwt_sub returns 401" do
+    conn =
+      :put
+      |> conn("/api/v1/settings")
+      |> SettingsController.update(%{"message_push_enabled" => false})
+
+    assert conn.status == 401
+  end
 end
