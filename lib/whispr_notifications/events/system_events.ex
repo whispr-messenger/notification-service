@@ -3,9 +3,9 @@ defmodule WhisprNotifications.Events.SystemEvents do
   Notifications système (maintenance, mot de passe, etc.).
   """
 
-  alias WhisprNotifications.Notifications.{Notification, Filter, History}
-  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.CacheManager
+  alias WhisprNotifications.Notifications.{Filter, History, Notification}
 
   @type system_event :: %{
           user_id: String.t(),
