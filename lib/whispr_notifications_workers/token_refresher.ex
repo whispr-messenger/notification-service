@@ -1,4 +1,4 @@
-defmodule  WhisprNotifications.Workers.TokenRefresher do
+defmodule WhisprNotifications.Workers.TokenRefresher do
   @moduledoc """
   Worker pour rafraîchir les tockens FCM/APNS invalides.
   """
