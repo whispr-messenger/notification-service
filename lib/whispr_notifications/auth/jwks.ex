@@ -6,7 +6,8 @@ defmodule WhisprNotifications.Auth.Jwks do
   Only EC P-256 (`crv` P-256) keys with a `kid` are loaded.
   """
 
-  @spec keys_from_json(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
+  @spec keys_from_json(String.t()) ::
+          {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
   def keys_from_json(json) when is_binary(json) do
     case Jason.decode(json) do
       {:ok, %{"keys" => keys}} when is_list(keys) -> build_key_map(keys)
@@ -27,13 +28,11 @@ defmodule WhisprNotifications.Auth.Jwks do
 
   defp normalize_jwk_entry(%{"kid" => kid, "kty" => "EC", "crv" => "P-256"} = key)
        when is_binary(kid) do
-    try do
-      jwk = JOSE.JWK.from(key)
-      jwk_public = JOSE.JWK.to_public(jwk)
-      {:ok, kid, jwk_public}
-    rescue
-      _ -> {:error, :bad_jwk}
-    end
+    jwk = JOSE.JWK.from(key)
+    jwk_public = JOSE.JWK.to_public(jwk)
+    {:ok, kid, jwk_public}
+  rescue
+    _ -> {:error, :bad_jwk}
   end
 
   defp normalize_jwk_entry(%{"kid" => _}), do: :skip
@@ -43,7 +42,8 @@ defmodule WhisprNotifications.Auth.Jwks do
   Fetches JWKS from `url` (HTTP GET). Returns the same map shape as `keys_from_json/1`.
   """
 
-  @spec fetch_keys(String.t()) :: {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
+  @spec fetch_keys(String.t()) ::
+          {:ok, %{optional(String.t()) => JOSE.JWK.t()}} | {:error, term()}
   def fetch_keys(url) when is_binary(url) do
     http_get = Application.get_env(:whispr_notification, :jwks_http_get, &default_get/1)
 
