@@ -6,17 +6,20 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
   alias WhisprNotifications.Repo
   alias WhisprNotifications.Test.NotificationFixtures
 
-  defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
+  # Notification ids are stored in a `uuid` column, so tests must generate
+  # real UUIDs. User ids stay string-prefixed — they go into a varchar column.
+  defp unique_id, do: Ecto.UUID.generate()
+  defp unique_user_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
 
   describe "save/1" do
     test "returns :ok for a valid notification" do
-      notif = NotificationFixtures.build_notification(%{id: unique_id("notif")})
+      notif = NotificationFixtures.build_notification(%{id: unique_id()})
       assert :ok == History.save(notif)
     end
 
     test "is idempotent on conflicting id (on_conflict: :nothing)" do
-      id = unique_id("notif")
-      notif = NotificationFixtures.build_notification(%{id: id, user_id: unique_id("u")})
+      id = unique_id()
+      notif = NotificationFixtures.build_notification(%{id: id, user_id: unique_user_id("u")})
 
       assert :ok == History.save(notif)
       assert :ok == History.save(notif)
@@ -25,12 +28,12 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
 
   describe "mark_read/2" do
     test "returns :ok for a non-existent id (no-op)" do
-      assert :ok == History.mark_read(unique_id("missing"), DateTime.utc_now())
+      assert :ok == History.mark_read(unique_id(), DateTime.utc_now())
     end
 
     test "persists read_at on an existing notification" do
-      user_id = unique_id("u")
-      notif = NotificationFixtures.build_notification(%{id: unique_id("notif"), user_id: user_id})
+      user_id = unique_user_id("u")
+      notif = NotificationFixtures.build_notification(%{id: unique_id(), user_id: user_id})
       :ok = History.save(notif)
 
       at = DateTime.utc_now() |> DateTime.truncate(:second)
@@ -43,29 +46,29 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
 
   describe "list_for_user/2" do
     test "returns empty list when the user has no history" do
-      assert [] == History.list_for_user(unique_id("nobody"))
+      assert [] == History.list_for_user(unique_user_id("nobody"))
     end
 
     test "returns notifications ordered by created_at desc" do
-      user_id = unique_id("u")
+      user_id = unique_user_id("u")
 
       oldest =
         NotificationFixtures.build_notification(%{
-          id: unique_id("notif"),
+          id: unique_id(),
           user_id: user_id,
           created_at: ~U[2026-01-01 10:00:00Z]
         })
 
       middle =
         NotificationFixtures.build_notification(%{
-          id: unique_id("notif"),
+          id: unique_id(),
           user_id: user_id,
           created_at: ~U[2026-01-02 10:00:00Z]
         })
 
       newest =
         NotificationFixtures.build_notification(%{
-          id: unique_id("notif"),
+          id: unique_id(),
           user_id: user_id,
           created_at: ~U[2026-01-03 10:00:00Z]
         })
@@ -79,12 +82,12 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
     end
 
     test "honors :limit and :offset for pagination" do
-      user_id = unique_id("u")
+      user_id = unique_user_id("u")
 
       notifs =
         for i <- 1..5 do
           NotificationFixtures.build_notification(%{
-            id: unique_id("notif"),
+            id: unique_id(),
             user_id: user_id,
             created_at: DateTime.add(~U[2026-01-01 00:00:00Z], i, :hour)
           })
@@ -104,13 +107,13 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
     end
 
     test "scopes results to the given user_id" do
-      user_a = unique_id("u")
-      user_b = unique_id("u")
+      user_a = unique_user_id("u")
+      user_b = unique_user_id("u")
 
       for uid <- [user_a, user_b] do
         :ok =
           History.save(
-            NotificationFixtures.build_notification(%{id: unique_id("notif"), user_id: uid})
+            NotificationFixtures.build_notification(%{id: unique_id(), user_id: uid})
           )
       end
 
