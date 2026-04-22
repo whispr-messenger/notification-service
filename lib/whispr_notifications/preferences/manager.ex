@@ -4,16 +4,18 @@ defmodule WhisprNotifications.Preferences.Manager do
   Persiste via Ecto sur PostgreSQL.
   """
 
-  alias WhisprNotifications.Preferences.{UserSettings, ConversationSettings}
   alias WhisprNotifications.Notifications.Notification
+  alias WhisprNotifications.Preferences.{ConversationSettings, UserSettings}
   alias WhisprNotifications.Repo
 
   defmodule Behaviour do
+    @moduledoc "Behaviour pour les dépendances injectables du Manager de préférences."
+
     @callback get_user_settings(String.t()) ::
-                {:ok, UserSettings.t()} | {:error, term()}
+                {:ok, WhisprNotifications.Preferences.UserSettings.t()} | {:error, term()}
 
     @callback get_conversation_settings(String.t(), String.t()) ::
-                {:ok, ConversationSettings.t()} | {:error, term()}
+                {:ok, WhisprNotifications.Preferences.ConversationSettings.t()} | {:error, term()}
   end
 
   @behaviour Behaviour

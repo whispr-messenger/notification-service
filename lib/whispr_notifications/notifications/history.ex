@@ -12,9 +12,12 @@ defmodule WhisprNotifications.Notifications.History do
   require Logger
 
   defmodule Behaviour do
-    @callback save(Notification.t()) :: :ok | {:error, term()}
+    @moduledoc "Behaviour pour la persistance de l'historique des notifications."
+
+    @callback save(WhisprNotifications.Notifications.Notification.t()) :: :ok | {:error, term()}
     @callback mark_read(String.t(), DateTime.t()) :: :ok
-    @callback list_for_user(String.t(), keyword()) :: [Notification.t()]
+    @callback list_for_user(String.t(), keyword()) ::
+                [WhisprNotifications.Notifications.Notification.t()]
   end
 
   @behaviour Behaviour

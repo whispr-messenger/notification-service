@@ -1,4 +1,9 @@
 defmodule WhisprNotificationsWeb do
+  @moduledoc """
+  Helpers d'injection Phoenix pour `WhisprNotificationsWeb` (controllers, router,
+  views). Utilisé via `use WhisprNotificationsWeb, :controller` etc.
+  """
+
   def controller do
     quote do
       use Phoenix.Controller, namespace: WhisprNotificationsWeb
