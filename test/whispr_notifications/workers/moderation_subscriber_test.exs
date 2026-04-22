@@ -110,6 +110,70 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
+  test "broadcasts blocked_image_decision to user topic on approved channel" do
+    Phoenix.PubSub.subscribe(WhisprNotifications.PubSub, "user:user-approved")
+    pid = Process.whereis(ModerationSubscriber)
+
+    payload =
+      Jason.encode!(%{
+        "appealId" => "appeal-approve-1",
+        "userId" => "user-approved",
+        "conversationId" => "conv-approve-1",
+        "messageTempId" => "temp-approve-1",
+        "reviewerNotes" => nil
+      })
+
+    send(
+      pid,
+      {:redix_pubsub, nil, nil, :message,
+       %{channel: "whispr:moderation:blocked_image_approved", payload: payload}}
+    )
+
+    assert_receive %Phoenix.Socket.Broadcast{
+                     topic: "user:user-approved",
+                     event: "blocked_image_decision",
+                     payload: broadcast_payload
+                   },
+                   2_000
+
+    assert broadcast_payload["appealId"] == "appeal-approve-1"
+    assert broadcast_payload["decision"] == "approved"
+    assert broadcast_payload["conversationId"] == "conv-approve-1"
+    assert broadcast_payload["messageTempId"] == "temp-approve-1"
+  end
+
+  test "broadcasts blocked_image_decision to user topic on rejected channel" do
+    Phoenix.PubSub.subscribe(WhisprNotifications.PubSub, "user:user-rejected")
+    pid = Process.whereis(ModerationSubscriber)
+
+    payload =
+      Jason.encode!(%{
+        "appealId" => "appeal-reject-1",
+        "userId" => "user-rejected",
+        "messageTempId" => "temp-reject-1",
+        "reviewerNotes" => "Policy violation"
+      })
+
+    send(
+      pid,
+      {:redix_pubsub, nil, nil, :message,
+       %{channel: "whispr:moderation:blocked_image_rejected", payload: payload}}
+    )
+
+    assert_receive %Phoenix.Socket.Broadcast{
+                     topic: "user:user-rejected",
+                     event: "blocked_image_decision",
+                     payload: broadcast_payload
+                   },
+                   2_000
+
+    assert broadcast_payload["appealId"] == "appeal-reject-1"
+    assert broadcast_payload["decision"] == "rejected"
+    assert broadcast_payload["messageTempId"] == "temp-reject-1"
+    assert broadcast_payload["reviewerNotes"] == "Policy violation"
+    refute Map.has_key?(broadcast_payload, "conversationId")
+  end
+
   test "routes to every moderation handler (happy payloads)" do
     pid = Process.whereis(ModerationSubscriber)
 
