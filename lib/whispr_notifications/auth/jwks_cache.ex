@@ -29,7 +29,13 @@ defmodule WhisprNotifications.Auth.JwksCache do
 
     case load_keys(opts, jwks_url, http_get_fun) do
       {:ok, keys} ->
-        state = %{keys: keys, refresh_interval_ms: refresh_ms, jwks_url: jwks_url, http_get_fun: http_get_fun}
+        state = %{
+          keys: keys,
+          refresh_interval_ms: refresh_ms,
+          jwks_url: jwks_url,
+          http_get_fun: http_get_fun
+        }
+
         {:ok, state}
 
       {:error, reason} ->
@@ -45,35 +51,28 @@ defmodule WhisprNotifications.Auth.JwksCache do
 
   defp load_keys(opts, jwks_url, http_get_fun) do
     cond do
-      json = opts[:inline_jwks] ->
-        Jwks.keys_from_json(json)
+      json = opts[:inline_jwks] -> Jwks.keys_from_json(json)
+      is_function(http_get_fun, 1) -> load_via_http(jwks_url, http_get_fun)
+      is_binary(jwks_url) and jwks_url != "" -> Jwks.fetch_keys(jwks_url)
+      opts[:allow_empty] == true -> {:ok, %{}}
+      true -> {:error, {:bad_jwks_opts, opts}}
+    end
+  end
 
-      is_function(http_get_fun, 1) ->
-        url = jwks_url || ""
+  defp load_via_http(jwks_url, http_get_fun) do
+    case http_get_fun.(jwks_url || "") do
+      {:ok, %{status: 200, body: body}} ->
+        body_json = if is_binary(body), do: body, else: Jason.encode!(body)
+        Jwks.keys_from_json(body_json)
 
-        case http_get_fun.(url) do
-          {:ok, %{status: 200, body: body}} ->
-            body_json = if is_binary(body), do: body, else: Jason.encode!(body)
-            Jwks.keys_from_json(body_json)
+      {:ok, %{status: status}} ->
+        {:error, {:http, status}}
 
-          {:ok, %{status: status}} ->
-            {:error, {:http, status}}
+      {:error, reason} ->
+        {:error, reason}
 
-          {:error, reason} ->
-            {:error, reason}
-
-          other ->
-            {:error, {:bad_http_result, other}}
-        end
-
-      is_binary(jwks_url) and jwks_url != "" ->
-        Jwks.fetch_keys(jwks_url)
-
-      opts[:allow_empty] == true ->
-        {:ok, %{}}
-
-      true ->
-        {:error, {:bad_jwks_opts, opts}}
+      other ->
+        {:error, {:bad_http_result, other}}
     end
   end
 

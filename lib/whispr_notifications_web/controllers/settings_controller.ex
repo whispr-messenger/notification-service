@@ -6,9 +6,8 @@ defmodule WhisprNotificationsWeb.SettingsController do
 
   # GET /api/settings/:id
   def show(conn, %{"id" => user_id}) do
-    with {:ok, user_settings} <- Manager.get_user_settings(user_id) do
-      json(conn, serialize(user_settings))
-    else
+    case Manager.get_user_settings(user_id) do
+      {:ok, user_settings} -> json(conn, serialize(user_settings))
       _ -> send_resp(conn, 404, "")
     end
   end
