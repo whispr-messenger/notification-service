@@ -78,8 +78,11 @@ defmodule WhisprNotifications.Notifications.Notification do
       end)
 
     case missing do
-      [] -> :ok
-      keys -> raise ArgumentError, "missing required keys for Notification.new/1: #{inspect(keys)}"
+      [] ->
+        :ok
+
+      keys ->
+        raise ArgumentError, "missing required keys for Notification.new/1: #{inspect(keys)}"
     end
   end
 
