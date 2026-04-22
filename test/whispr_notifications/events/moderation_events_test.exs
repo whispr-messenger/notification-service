@@ -136,7 +136,9 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
   end
 
   describe "handle_blocked_image_decision/2" do
-    test "creates notification for approved decision" do
+    test "creates notification and broadcasts approved decision on user topic" do
+      Phoenix.PubSub.subscribe(WhisprNotifications.PubSub, "user:user-10")
+
       payload = %{
         "appealId" => "appeal-100",
         "userId" => "user-10",
@@ -151,9 +153,23 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
       assert notif.user_id == "user-10"
       assert notif.context["event"] == "blocked_image_decision"
       assert notif.context["decision"] == "approved"
+
+      assert_receive %Phoenix.Socket.Broadcast{
+        topic: "user:user-10",
+        event: "blocked_image_decision",
+        payload: broadcast_payload
+      }
+
+      assert broadcast_payload["appealId"] == "appeal-100"
+      assert broadcast_payload["decision"] == "approved"
+      assert broadcast_payload["messageTempId"] == "temp-1"
+      assert broadcast_payload["conversationId"] == "conv-1"
+      assert Map.has_key?(broadcast_payload, "reviewerNotes")
     end
 
-    test "creates notification for rejected decision with reviewer notes" do
+    test "creates notification and broadcasts rejected decision on user topic" do
+      Phoenix.PubSub.subscribe(WhisprNotifications.PubSub, "user:user-11")
+
       payload = %{
         "appealId" => "appeal-101",
         "userId" => "user-11",
@@ -166,6 +182,18 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
       assert notif.title == "Image appeal rejected"
       assert notif.body =~ "Content violates policy"
       assert notif.context["reason"] == "Content violates policy"
+
+      assert_receive %Phoenix.Socket.Broadcast{
+        topic: "user:user-11",
+        event: "blocked_image_decision",
+        payload: broadcast_payload
+      }
+
+      assert broadcast_payload["appealId"] == "appeal-101"
+      assert broadcast_payload["decision"] == "rejected"
+      assert broadcast_payload["messageTempId"] == "temp-2"
+      assert broadcast_payload["reviewerNotes"] == "Content violates policy"
+      refute Map.has_key?(broadcast_payload, "conversationId")
     end
 
     test "returns error when userId is nil" do
