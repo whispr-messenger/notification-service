@@ -39,4 +39,5 @@ defmodule WhisprNotificationsWeb.Plugs.Cors do
     |> Enum.filter(&(&1 != ""))
   end
 end
+
 # coveralls-ignore-stop

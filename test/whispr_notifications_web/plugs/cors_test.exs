@@ -17,8 +17,15 @@ defmodule WhisprNotificationsWeb.Plugs.CorsTest do
       |> Cors.call(@opts)
 
     assert get_resp_header(conn, "access-control-allow-origin") == [@allowed_origin]
-    assert get_resp_header(conn, "access-control-allow-methods") == ["GET, POST, PUT, PATCH, DELETE, OPTIONS"]
-    assert get_resp_header(conn, "access-control-allow-headers") == ["authorization, content-type, accept"]
+
+    assert get_resp_header(conn, "access-control-allow-methods") == [
+             "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+           ]
+
+    assert get_resp_header(conn, "access-control-allow-headers") == [
+             "authorization, content-type, accept"
+           ]
+
     assert get_resp_header(conn, "access-control-max-age") == ["86400"]
     assert get_resp_header(conn, "vary") == ["Origin"]
   end

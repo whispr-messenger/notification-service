@@ -1,7 +1,7 @@
 defmodule WhisprNotifications.Preferences.ManagerTest do
   use WhisprNotifications.DataCase, async: true
 
-  alias WhisprNotifications.Preferences.{Manager, UserSettings, ConversationSettings}
+  alias WhisprNotifications.Preferences.{ConversationSettings, Manager, UserSettings}
   alias WhisprNotifications.Test.NotificationFixtures
 
   defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
