@@ -142,4 +142,3 @@ Projet Whispr : usage privé, tous droits réservés.
 
 Version : 1.0.0  
 Dernière mise à jour – 18/04/2026
-
