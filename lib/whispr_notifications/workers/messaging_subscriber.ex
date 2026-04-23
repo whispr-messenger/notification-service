@@ -18,6 +18,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   require Logger
 
   alias WhisprNotifications.Badges
+  alias WhisprNotifications.RedisConfig
 
   @channels [
     "whispr:messaging:new_message",
@@ -30,19 +31,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
 
   @impl true
   def init(_opts) do
-    redis_config = Application.get_env(:whispr_notification, :redis, [])
-
-    redis_opts =
-      [
-        host: Keyword.get(redis_config, :host, "localhost"),
-        port: Keyword.get(redis_config, :port, 6379),
-        database: Keyword.get(redis_config, :database, 0)
-      ]
-      |> maybe_put(:password, Keyword.get(redis_config, :password), &(&1 not in [nil, ""]))
-      |> maybe_put(:timeout, Keyword.get(redis_config, :timeout), &is_integer/1)
-      |> maybe_put(:ssl, Keyword.get(redis_config, :ssl), &is_boolean/1)
-
-    case Redix.PubSub.start_link(redis_opts) do
+    case Redix.PubSub.start_link(RedisConfig.build()) do
       {:ok, pubsub} ->
         for channel <- @channels do
           Redix.PubSub.subscribe(pubsub, channel, self())
@@ -149,10 +138,4 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
 
   defp positive_count(n) when is_integer(n) and n > 0, do: n
   defp positive_count(_), do: 1
-
-  defp maybe_put(opts, _key, nil, _valid?), do: opts
-
-  defp maybe_put(opts, key, value, valid?) do
-    if valid?.(value), do: Keyword.put(opts, key, value), else: opts
-  end
 end

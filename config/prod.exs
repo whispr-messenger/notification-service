@@ -18,17 +18,6 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   check_origin: false,
   server: true
 
-# ======================================================================
-# Redis production (pour cache devices / rate limiting, etc.)
-# ======================================================================
-
-config :whispr_notification, :redis,
-  host: System.get_env("REDIS_HOST", "localhost"),
-  port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
-  database: String.to_integer(System.get_env("REDIS_DB", "0")),
-  password: System.get_env("REDIS_PASSWORD"),
-  timeout: 15_000,
-  ssl: System.get_env("REDIS_SSL", "false") == "true"
 
 # ======================================================================
 # gRPC port production
