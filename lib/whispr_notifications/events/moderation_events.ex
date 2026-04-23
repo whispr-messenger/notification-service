@@ -35,9 +35,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         "category" => payload["category"]
       }
     })
-    |> log_result("Report created notification",
-      context: "report #{payload["report_id"]}"
-    )
+    |> log_result("Report created notification", report_id: payload["report_id"])
   end
 
   @doc "Notify a user when a sanction is applied to them."
@@ -72,9 +70,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         "expires_at" => payload["expires_at"]
       }
     })
-    |> log_result("Sanction notification",
-      context: "user #{payload["user_id"]}"
-    )
+    |> log_result("Sanction notification", user_id: payload["user_id"])
   end
 
   @doc "Notify a user when a sanction is lifted."
@@ -90,9 +86,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         "sanction_id" => payload["sanction_id"]
       }
     })
-    |> log_result("Sanction lifted notification",
-      context: "user #{payload["user_id"]}"
-    )
+    |> log_result("Sanction lifted notification", user_id: payload["user_id"])
   end
 
   @doc "Notify admins when an appeal is created."
@@ -110,9 +104,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         "sanction_id" => payload["sanction_id"]
       }
     })
-    |> log_result("Appeal created notification",
-      context: "appeal #{payload["appeal_id"]}"
-    )
+    |> log_result("Appeal created notification", appeal_id: payload["appeal_id"])
   end
 
   @doc "Notify the appellant when their appeal is resolved."
@@ -143,7 +135,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
       }
     })
     |> log_result("Appeal resolved notification",
-      context: "user #{payload["user_id"]}"
+      user_id: payload["user_id"],
+      appeal_id: payload["appeal_id"]
     )
   end
 
@@ -163,9 +156,7 @@ defmodule WhisprNotifications.Events.ModerationEvents do
         "report_count" => payload["report_count"]
       }
     })
-    |> log_result("Threshold warning",
-      context: "user #{payload["reported_user_id"]}"
-    )
+    |> log_result("Threshold warning", reported_user_id: payload["reported_user_id"])
   end
 
   @doc "Notify a user when their blocked image appeal has been reviewed."
@@ -201,7 +192,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
     case payload["userId"] do
       user_id when user_id in [nil, ""] ->
         Logger.warning(
-          "[ModerationEvents] Blocked image appeal #{decision} notification not created: missing userId (appeal=#{payload["appealId"]})"
+          "[ModerationEvents] Blocked image appeal #{decision} notification not created: missing userId",
+          appeal_id: payload["appealId"]
         )
 
         {:error, :missing_user_id}
@@ -217,7 +209,8 @@ defmodule WhisprNotifications.Events.ModerationEvents do
           context: context
         })
         |> log_result("Blocked image appeal #{decision} notification",
-          context: "user #{user_id} (appeal=#{payload["appealId"]})"
+          user_id: user_id,
+          appeal_id: payload["appealId"]
         )
     end
   end
@@ -245,14 +238,15 @@ defmodule WhisprNotifications.Events.ModerationEvents do
     Endpoint.broadcast("user:#{user_id}", "blocked_image_decision", data)
   end
 
-  defp log_result({:ok, _} = result, label, opts) do
-    Logger.info("[ModerationEvents] #{label} sent for #{Keyword.fetch!(opts, :context)}")
+  defp log_result({:ok, _} = result, label, metadata) do
+    Logger.info("[ModerationEvents] #{label} sent", metadata)
     result
   end
 
-  defp log_result({:error, kind, details} = result, label, opts) do
+  defp log_result({:error, kind, details} = result, label, metadata) do
     Logger.error(
-      "[ModerationEvents] #{label} failed for #{Keyword.fetch!(opts, :context)}: #{inspect({kind, details})}"
+      "[ModerationEvents] #{label} failed: #{inspect({kind, details})}",
+      metadata
     )
 
     result
