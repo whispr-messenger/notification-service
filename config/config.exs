@@ -31,7 +31,6 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   live_view: [signing_salt: "notifications_secret"],
   server: true
 
-
 # ======================================================================
 
 # ======================================================================
@@ -97,7 +96,15 @@ config :pigeon, :apns,
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :user_id, :conversation_id, :notification_id]
+  metadata: [
+    :request_id,
+    :user_id,
+    :conversation_id,
+    :notification_id,
+    :report_id,
+    :appeal_id,
+    :reported_user_id
+  ]
 
 # ======================================================================
 # Phoenix / JSON

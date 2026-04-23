@@ -4,7 +4,8 @@ defmodule WhisprNotificationsWeb.MuteController do
   alias WhisprNotifications.Preferences.Manager
 
   # POST /api/conversations/:conversation_id/mute
-  # user_id: peut être fourni en param, sinon dérivé du JWT sub.
+  # user_id: optionnel dans le body. S'il est fourni, il doit être égal au
+  # `sub` du JWT, sinon 403. S'il est absent, le `sub` du JWT est utilisé.
   # Body/query params: mute_until (optionnel, ISO8601).
   def mute(conn, %{"conversation_id" => conversation_id} = params) do
     with {:ok, user_id} <- resolve_user_id(conn, params),
@@ -14,10 +15,8 @@ defmodule WhisprNotificationsWeb.MuteController do
         {:error, changeset} -> unprocessable(conn, changeset)
       end
     else
-      {:error, :missing_user_id} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{errors: %{user_id: ["is required"]}})
+      {:error, :forbidden} ->
+        forbidden(conn)
 
       {:error, :invalid_datetime} ->
         conn
@@ -35,19 +34,31 @@ defmodule WhisprNotificationsWeb.MuteController do
           {:error, changeset} -> unprocessable(conn, changeset)
         end
 
-      {:error, :missing_user_id} ->
-        conn
-        |> put_status(:bad_request)
-        |> json(%{errors: %{user_id: ["is required"]}})
+      {:error, :forbidden} ->
+        forbidden(conn)
     end
   end
 
   defp resolve_user_id(conn, params) do
-    case params["user_id"] || conn.assigns[:jwt_sub] do
-      nil -> {:error, :missing_user_id}
-      "" -> {:error, :missing_user_id}
-      uid when is_binary(uid) -> {:ok, uid}
+    jwt_sub = conn.assigns[:jwt_sub]
+
+    body_user_id =
+      case params["user_id"] do
+        "" -> nil
+        value -> value
+      end
+
+    case {jwt_sub, body_user_id} do
+      {sub, nil} when is_binary(sub) -> {:ok, sub}
+      {sub, sub} when is_binary(sub) -> {:ok, sub}
+      _ -> {:error, :forbidden}
     end
+  end
+
+  defp forbidden(conn) do
+    conn
+    |> put_status(:forbidden)
+    |> json(%{error: "forbidden"})
   end
 
   defp build_opts(params) do

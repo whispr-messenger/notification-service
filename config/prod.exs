@@ -18,7 +18,6 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   check_origin: false,
   server: true
 
-
 # ======================================================================
 # gRPC port production
 # ======================================================================
@@ -32,7 +31,15 @@ config :whispr_notification,
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :user_id, :conversation_id, :notification_id],
+  metadata: [
+    :request_id,
+    :user_id,
+    :conversation_id,
+    :notification_id,
+    :report_id,
+    :appeal_id,
+    :reported_user_id
+  ],
   level: :info
 
 config :logger,
