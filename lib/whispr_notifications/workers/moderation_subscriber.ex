@@ -8,6 +8,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
   require Logger
 
   alias WhisprNotifications.Events.ModerationEvents
+  alias WhisprNotifications.RedisConfig
 
   @channels [
     "whispr:moderation:report_created",
@@ -26,19 +27,7 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
 
   @impl true
   def init(_opts) do
-    redis_config = Application.get_env(:whispr_notification, :redis, [])
-
-    redis_opts =
-      [
-        host: Keyword.get(redis_config, :host, "localhost"),
-        port: Keyword.get(redis_config, :port, 6379),
-        database: Keyword.get(redis_config, :database, 0)
-      ]
-      |> maybe_put(:password, Keyword.get(redis_config, :password), &(&1 not in [nil, ""]))
-      |> maybe_put(:timeout, Keyword.get(redis_config, :timeout), &is_integer/1)
-      |> maybe_put(:ssl, Keyword.get(redis_config, :ssl), &is_boolean/1)
-
-    case Redix.PubSub.start_link(redis_opts) do
+    case Redix.PubSub.start_link(RedisConfig.build()) do
       {:ok, pubsub} ->
         for channel <- @channels do
           Redix.PubSub.subscribe(pubsub, channel, self())
@@ -127,10 +116,4 @@ defmodule WhisprNotifications.Workers.ModerationSubscriber do
 
   defp route_event(channel, _payload),
     do: Logger.warning("[ModerationSubscriber] Unknown channel: #{channel}")
-
-  defp maybe_put(opts, _key, nil, _valid?), do: opts
-
-  defp maybe_put(opts, key, value, valid?) do
-    if valid?.(value), do: Keyword.put(opts, key, value), else: opts
-  end
 end

@@ -31,15 +31,8 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   live_view: [signing_salt: "notifications_secret"],
   server: true
 
-# ======================================================================
-# Redis / cache devices (si utilisé)
-# ======================================================================
 
-config :whispr_notification, :redis,
-  host: System.get_env("REDIS_HOST", "localhost"),
-  port: parse_port.(System.get_env("REDIS_PORT", "6379")),
-  database: String.to_integer(System.get_env("REDIS_DB", "0")),
-  password: System.get_env("REDIS_PASSWORD")
+# ======================================================================
 
 # ======================================================================
 # gRPC
