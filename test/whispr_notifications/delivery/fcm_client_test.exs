@@ -1,161 +1,230 @@
 defmodule WhisprNotifications.Delivery.FcmClientTest do
+  @moduledoc """
+  Unit tests for `FcmClient`.
+
+  Now that the HTTP/OAuth plumbing is delegated to Pigeon, we no longer own
+  the network boundary — we trust Pigeon's own test suite for that. What
+  stays in our responsibility:
+
+    * building a valid `%Pigeon.FCM.Notification{}` from our internal
+      payload shape (what BatchProcessor hands us),
+    * mapping every possible `:response` atom back to the
+      `FcmClient.send/2` contract (`:ok | {:error, :token_invalid | :transient}`),
+    * the short-circuit paths (empty token, FCM disabled, dispatcher not
+      running) that must never reach Pigeon.
+
+  End-to-end behaviour through a real or stub dispatcher is covered by
+  `batch_processor_test.exs` via `SpyFcmClient`.
+  """
   use ExUnit.Case, async: false
 
+  alias Pigeon.FCM.Notification, as: FCMNotification
   alias WhisprNotifications.Delivery.FcmClient
 
-  setup do
-    # FCM configuré pour ce suite : project id réel + un `goth_fetch`
-    # stub qui renvoie un access token prédictible.
-    previous_fcm = Application.get_env(:whispr_notification, :fcm)
+  describe "build_notification/3" do
+    test "targets the device token and carries title/body from a flat payload" do
+      notif =
+        FcmClient.build_notification("android-token", :android, %{title: "Hi", body: "world"})
 
-    Application.put_env(:whispr_notification, :fcm,
-      project_id: "test-project",
-      credentials: %{},
-      enabled: true
-    )
-
-    previous_goth = Application.get_env(:whispr_notification, :fcm_goth_fetch)
-
-    Application.put_env(
-      :whispr_notification,
-      :fcm_goth_fetch,
-      fn _name -> {:ok, %{token: "test-access-token"}} end
-    )
-
-    previous_req = Application.get_env(:whispr_notification, :fcm_req_post)
-
-    on_exit(fn ->
-      restore(:fcm, previous_fcm)
-      restore(:fcm_goth_fetch, previous_goth)
-      restore(:fcm_req_post, previous_req)
-    end)
-
-    :ok
-  end
-
-  defp restore(key, nil), do: Application.delete_env(:whispr_notification, key)
-  defp restore(key, value), do: Application.put_env(:whispr_notification, key, value)
-
-  defp stub_post(fun), do: Application.put_env(:whispr_notification, :fcm_req_post, fun)
-
-  describe "send/2 — happy path" do
-    test "returns :ok when FCM replies 200" do
-      parent = self()
-
-      stub_post(fn url, opts ->
-        send(parent, {:fcm_call, url, opts})
-        {:ok, %Req.Response{status: 200, body: %{"name" => "projects/x/messages/abc"}}}
-      end)
-
-      device = %{token: "android-token", platform: :android, app: nil}
-      payload = %{title: "Hi", body: "world", data: %{"cid" => "conv-1"}}
-
-      assert :ok = FcmClient.send(device, payload)
-
-      assert_receive {:fcm_call, url, opts}
-      assert url == "https://fcm.googleapis.com/v1/projects/test-project/messages:send"
-      assert {"authorization", "Bearer test-access-token"} in Keyword.fetch!(opts, :headers)
-
-      body = Keyword.fetch!(opts, :json)
-      assert body["message"]["token"] == "android-token"
-      assert body["message"]["notification"] == %{"title" => "Hi", "body" => "world"}
-      assert body["message"]["data"] == %{"cid" => "conv-1"}
-      assert body["message"]["android"] == %{"priority" => "HIGH"}
-      refute Map.has_key?(body["message"], "apns")
+      assert %FCMNotification{target: {:token, "android-token"}} = notif
+      assert notif.notification == %{"title" => "Hi", "body" => "world"}
     end
 
-    test "omits the data block when the payload has no data" do
-      stub_post(fn _url, opts ->
-        send(self(), :ok)
-        assert Keyword.fetch!(opts, :json)["message"] |> Map.has_key?("data") == false
-        {:ok, %Req.Response{status: 200, body: %{}}}
-      end)
+    test "reads title/body from a nested `:notification` key as well" do
+      payload = %{notification: %{title: "From nested", body: "also ok"}}
+      notif = FcmClient.build_notification("t", :android, payload)
 
-      device = %{token: "t", platform: :android, app: nil}
-      assert :ok = FcmClient.send(device, %{title: "t", body: "b"})
+      assert notif.notification == %{"title" => "From nested", "body" => "also ok"}
+    end
+
+    test "forwards `:data` as string-keyed, string-valued map" do
+      payload = %{title: "t", body: "b", data: %{"cid" => "conv-1", :source => :app}}
+      notif = FcmClient.build_notification("t", :android, payload)
+
+      assert notif.data == %{"cid" => "conv-1", "source" => "app"}
+    end
+
+    test "omits data when the payload has no data or empty data" do
+      assert FcmClient.build_notification("t", :android, %{title: "t", body: "b"}).data == nil
+
+      assert FcmClient.build_notification("t", :android, %{title: "t", body: "b", data: %{}}).data ==
+               nil
+    end
+
+    test "sets Android priority HIGH for :android platform" do
+      notif = FcmClient.build_notification("t", :android, %{title: "t", body: "b"})
+      assert notif.android == %{"priority" => "HIGH"}
+    end
+
+    test "leaves android nil for non-android platforms" do
+      assert FcmClient.build_notification("t", :ios, %{title: "t", body: "b"}).android == nil
+      assert FcmClient.build_notification("t", :web, %{title: "t", body: "b"}).android == nil
     end
   end
 
-  describe "send/2 — invalid token" do
-    for code <- ["UNREGISTERED", "NOT_FOUND", "INVALID_ARGUMENT", "SENDER_ID_MISMATCH"] do
-      test "maps errorCode=#{code} to {:error, :token_invalid}" do
-        code = unquote(code)
+  describe "response_to_result/1" do
+    test ":success maps to :ok" do
+      assert :ok = FcmClient.response_to_result(%FCMNotification{response: :success})
+    end
 
-        stub_post(fn _url, _opts ->
-          {:ok,
-           %Req.Response{
-             status: 404,
-             body: %{"error" => %{"details" => [%{"errorCode" => code}]}}
-           }}
-        end)
-
-        device = %{token: "dead-token", platform: :android, app: nil}
-        assert {:error, :token_invalid} = FcmClient.send(device, %{title: "t", body: "b"})
+    for response <- [:unregistered, :invalid_argument, :sender_id_mismatch] do
+      test "#{inspect(response)} maps to {:error, :token_invalid}" do
+        response = unquote(response)
+        notif = %FCMNotification{response: response}
+        assert {:error, :token_invalid} = FcmClient.response_to_result(notif)
       end
     end
 
-    test "4xx with unknown errorCode falls back to :token_invalid" do
-      stub_post(fn _url, _opts ->
-        {:ok, %Req.Response{status: 400, body: %{"error" => %{"status" => "QUOTA_EXCEEDED"}}}}
-      end)
+    for response <- [
+          :permission_denied,
+          :third_party_auth_error,
+          :quota_exceeded,
+          :unavailable,
+          :internal,
+          :unspecified_error,
+          :unknown_error
+        ] do
+      test "#{inspect(response)} maps to {:error, :transient}" do
+        response = unquote(response)
+        notif = %FCMNotification{response: response}
+        assert {:error, :transient} = FcmClient.response_to_result(notif)
+      end
+    end
 
-      device = %{token: "t", platform: :android, app: nil}
-      assert {:error, :token_invalid} = FcmClient.send(device, %{title: "t", body: "b"})
+    test "any unknown response atom degrades to :transient (never drops a token)" do
+      notif = %FCMNotification{response: :some_future_atom_from_pigeon}
+      assert {:error, :transient} = FcmClient.response_to_result(notif)
     end
   end
 
-  describe "send/2 — transient failures" do
-    test "HTTP 500 returns {:error, :transient}" do
-      stub_post(fn _url, _opts -> {:ok, %Req.Response{status: 500, body: "upstream"}} end)
-      device = %{token: "t", platform: :android, app: nil}
-      assert {:error, :transient} = FcmClient.send(device, %{title: "t", body: "b"})
-    end
+  describe "send/2 — short-circuit paths" do
+    setup do
+      previous = Application.get_env(:whispr_notification, :fcm)
 
-    test "network error returns {:error, :transient}" do
-      stub_post(fn _url, _opts -> {:error, %Mint.TransportError{reason: :timeout}} end)
-      device = %{token: "t", platform: :android, app: nil}
-      assert {:error, :transient} = FcmClient.send(device, %{title: "t", body: "b"})
-    end
-
-    test "UNAUTHENTICATED is treated as :transient so we don't soft-delete valid tokens" do
-      stub_post(fn _url, _opts ->
-        {:ok, %Req.Response{status: 401, body: %{"error" => %{"status" => "UNAUTHENTICATED"}}}}
+      on_exit(fn ->
+        if is_nil(previous) do
+          Application.delete_env(:whispr_notification, :fcm)
+        else
+          Application.put_env(:whispr_notification, :fcm, previous)
+        end
       end)
 
-      device = %{token: "t", platform: :android, app: nil}
-      assert {:error, :transient} = FcmClient.send(device, %{title: "t", body: "b"})
+      :ok
     end
-  end
 
-  describe "send/2 — configuration / input edge cases" do
-    test "returns {:error, :not_configured} when project_id is missing" do
+    test "returns {:error, :not_configured} when the FCM config is absent" do
+      Application.delete_env(:whispr_notification, :fcm)
+
+      device = %{token: "t", platform: :android, app: nil}
+      assert {:error, :not_configured} = FcmClient.send(device, %{title: "t", body: "b"})
+    end
+
+    test "returns {:error, :not_configured} when :enabled is false" do
+      Application.put_env(:whispr_notification, :fcm, enabled: false)
+
+      device = %{token: "t", platform: :android, app: nil}
+      assert {:error, :not_configured} = FcmClient.send(device, %{title: "t", body: "b"})
+    end
+
+    test "returns {:error, :not_configured} when the dispatcher isn't running" do
+      # enabled = true but no dispatcher in the supervision tree (test env)
       Application.put_env(:whispr_notification, :fcm,
-        project_id: nil,
-        credentials: nil,
-        enabled: false
+        project_id: "proj",
+        enabled: true,
+        credentials: %{}
       )
 
       device = %{token: "t", platform: :android, app: nil}
       assert {:error, :not_configured} = FcmClient.send(device, %{title: "t", body: "b"})
     end
 
-    test "returns {:error, :not_configured} when Goth worker is not running" do
-      Application.put_env(
-        :whispr_notification,
-        :fcm_goth_fetch,
-        fn _name -> exit({:noproc, {GenServer, :call, []}}) end
-      )
-
-      device = %{token: "t", platform: :android, app: nil}
-      assert {:error, :not_configured} = FcmClient.send(device, %{title: "t", body: "b"})
-    end
-
-    test "returns {:error, :token_invalid} for empty / nil token inputs" do
+    test "returns {:error, :token_invalid} for empty token" do
       assert {:error, :token_invalid} =
                FcmClient.send(%{token: "", platform: :android, app: nil}, %{})
+    end
 
+    test "returns {:error, :token_invalid} for nil token" do
       assert {:error, :token_invalid} =
                FcmClient.send(%{token: nil, platform: :android, app: nil}, %{})
+    end
+  end
+
+  describe "send/2 — dispatcher stub" do
+    setup do
+      previous_fcm = Application.get_env(:whispr_notification, :fcm)
+      previous_disp = Application.get_env(:whispr_notification, :fcm_dispatcher)
+
+      Application.put_env(:whispr_notification, :fcm,
+        project_id: "proj",
+        enabled: true,
+        credentials: %{}
+      )
+
+      on_exit(fn ->
+        restore(:fcm, previous_fcm)
+        restore(:fcm_dispatcher, previous_disp)
+      end)
+
+      :ok
+    end
+
+    defp restore(key, nil), do: Application.delete_env(:whispr_notification, key)
+    defp restore(key, value), do: Application.put_env(:whispr_notification, key, value)
+
+    test "end-to-end :ok path via a stub dispatcher" do
+      defmodule StubDispatcherOK do
+        @moduledoc false
+        def push(%Pigeon.FCM.Notification{} = notif), do: %{notif | response: :success}
+      end
+
+      {:ok, pid} = Agent.start_link(fn -> :ok end, name: StubDispatcherOK)
+      Application.put_env(:whispr_notification, :fcm_dispatcher, StubDispatcherOK)
+
+      device = %{token: "tok", platform: :android, app: nil}
+      assert :ok = FcmClient.send(device, %{title: "t", body: "b"})
+      Agent.stop(pid)
+    end
+
+    test "end-to-end :token_invalid via a stub dispatcher" do
+      defmodule StubDispatcherUnreg do
+        @moduledoc false
+        def push(%Pigeon.FCM.Notification{} = notif), do: %{notif | response: :unregistered}
+      end
+
+      {:ok, pid} = Agent.start_link(fn -> :ok end, name: StubDispatcherUnreg)
+      Application.put_env(:whispr_notification, :fcm_dispatcher, StubDispatcherUnreg)
+
+      device = %{token: "dead", platform: :android, app: nil}
+      assert {:error, :token_invalid} = FcmClient.send(device, %{title: "t", body: "b"})
+      Agent.stop(pid)
+    end
+
+    test "end-to-end :transient via a stub dispatcher" do
+      defmodule StubDispatcher5xx do
+        @moduledoc false
+        def push(%Pigeon.FCM.Notification{} = notif), do: %{notif | response: :unavailable}
+      end
+
+      {:ok, pid} = Agent.start_link(fn -> :ok end, name: StubDispatcher5xx)
+      Application.put_env(:whispr_notification, :fcm_dispatcher, StubDispatcher5xx)
+
+      device = %{token: "t", platform: :android, app: nil}
+      assert {:error, :transient} = FcmClient.send(device, %{title: "t", body: "b"})
+      Agent.stop(pid)
+    end
+
+    test "dispatcher crash is caught and returned as :transient" do
+      defmodule StubDispatcherCrash do
+        @moduledoc false
+        def push(_notif), do: raise("boom")
+      end
+
+      {:ok, pid} = Agent.start_link(fn -> :ok end, name: StubDispatcherCrash)
+      Application.put_env(:whispr_notification, :fcm_dispatcher, StubDispatcherCrash)
+
+      device = %{token: "t", platform: :android, app: nil}
+      assert {:error, :transient} = FcmClient.send(device, %{title: "t", body: "b"})
+      Agent.stop(pid)
     end
   end
 end

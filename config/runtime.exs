@@ -147,3 +147,15 @@ config :whispr_notification, :fcm,
   project_id: fcm_project_id,
   credentials: fcm_credentials,
   enabled: is_binary(fcm_project_id) and fcm_project_id != "" and is_map(fcm_credentials)
+
+# Pigeon.FCM dispatcher config. Only meaningful when the dispatcher is
+# actually started (cf. WhisprNotifications.Application.fcm_children/0), but
+# we set it unconditionally so `use Pigeon.Dispatcher` finds its config at
+# compile-time introspection and `Process.whereis/1` remains the single
+# source of truth for "is FCM available".
+if is_binary(fcm_project_id) and fcm_project_id != "" do
+  config :whispr_notification, WhisprNotifications.Delivery.FcmDispatcher,
+    adapter: Pigeon.FCM,
+    auth: WhisprNotifications.Goth,
+    project_id: fcm_project_id
+end

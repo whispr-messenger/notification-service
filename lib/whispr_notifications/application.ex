@@ -29,24 +29,27 @@ defmodule WhisprNotifications.Application do
         {WhisprNotifications.Workers.ModerationSubscriber, []},
         {WhisprNotifications.Workers.CallsSubscriber, []},
         {WhisprNotifications.Workers.MessagingSubscriber, []}
-      ] ++ fcm_goth_children()
+      ] ++ fcm_children()
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
-  # Goth démarre seulement si FCM est configuré (service account + project
-  # id présents). Sans ça on laisse le tree booter proprement en dev/CI et
-  # `FcmClient.send/2` renverra `{:error, :not_configured}`.
-  defp fcm_goth_children do
+  # Goth + Pigeon FCM dispatcher only start when FCM is fully configured
+  # (service account + project id present). Otherwise we let the tree boot
+  # cleanly in dev/CI and `FcmClient.send/2` returns `{:error, :not_configured}`.
+  defp fcm_children do
     cfg = Application.get_env(:whispr_notification, :fcm, [])
 
     with true <- Keyword.get(cfg, :enabled, false),
          credentials when is_map(credentials) <- Keyword.get(cfg, :credentials) do
-      [{Goth, name: WhisprNotifications.Goth, source: {:service_account, credentials}}]
+      [
+        {Goth, name: WhisprNotifications.Goth, source: {:service_account, credentials}},
+        WhisprNotifications.Delivery.FcmDispatcher
+      ]
     else
       _ ->
-        Logger.info("[FCM] not configured — Goth worker not started")
+        Logger.info("[FCM] not configured — Goth + FcmDispatcher not started")
         []
     end
   end
