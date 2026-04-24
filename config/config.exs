@@ -74,12 +74,12 @@ config :whispr_notification, :services,
   }
 
 # ======================================================================
-# FCM / APNS (Pigeon / Fcmex)
+# FCM / APNS
 # ======================================================================
-
-config :fcmex,
-  project_id: System.get_env("FCM_PROJECT_ID"),
-  json_keyfile: System.get_env("FCM_JSON_KEYFILE")
+#
+# FCM HTTP v1 — configured via config :whispr_notification, :fcm in
+# runtime.exs (OAuth via Goth). The project_id/service-account JSON
+# default to FCM_PROJECT_ID / FCM_JSON_KEYFILE env vars.
 
 config :pigeon, :apns,
   apns_default: %{

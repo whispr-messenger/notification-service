@@ -65,8 +65,7 @@ config :whispr_notification, :jwt,
       "AUTH_JWKS_URL",
       "http://auth-service/auth/.well-known/jwks.json"
     ),
-  refresh_interval_ms:
-    String.to_integer(System.get_env("JWKS_REFRESH_INTERVAL_MS", "3600000")),
+  refresh_interval_ms: String.to_integer(System.get_env("JWKS_REFRESH_INTERVAL_MS", "3600000")),
   allowed_algs: ["ES256"],
   issuer: System.get_env("JWT_ISSUER"),
   audience: System.get_env("JWT_AUDIENCE")
@@ -113,3 +112,38 @@ if System.get_env("LOG_FORMAT") == "json" do
     format: {WhisprNotifications.JsonFormatter, :format},
     metadata: :all
 end
+
+# WHISPR-1157 : FCM HTTP v1. Le service account JSON arrive soit via le
+# chemin d'un fichier (FCM_JSON_KEYFILE) soit en ligne (FCM_JSON). Quand
+# aucun n'est positionné (dev sans creds) le dispatcher ne démarre pas
+# Goth et FcmClient renvoie {:error, :not_configured}.
+fcm_project_id = System.get_env("FCM_PROJECT_ID")
+
+fcm_credentials =
+  cond do
+    json = System.get_env("FCM_JSON") ->
+      case Jason.decode(json) do
+        {:ok, decoded} -> decoded
+        _ -> nil
+      end
+
+    path = System.get_env("FCM_JSON_KEYFILE") ->
+      case File.read(path) do
+        {:ok, body} ->
+          case Jason.decode(body) do
+            {:ok, decoded} -> decoded
+            _ -> nil
+          end
+
+        _ ->
+          nil
+      end
+
+    true ->
+      nil
+  end
+
+config :whispr_notification, :fcm,
+  project_id: fcm_project_id,
+  credentials: fcm_credentials,
+  enabled: is_binary(fcm_project_id) and fcm_project_id != "" and is_map(fcm_credentials)
