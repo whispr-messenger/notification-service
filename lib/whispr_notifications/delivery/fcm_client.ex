@@ -1,25 +1,32 @@
 defmodule WhisprNotifications.Delivery.FcmClient do
   @moduledoc """
-  FCM HTTP v1 client.
+  FCM push via Pigeon 2.x (HTTP v1 + OAuth Goth).
 
-  Authentification via un worker Goth (`WhisprNotifications.Goth`) qui
-  charge le service-account JSON depuis `FCM_JSON_KEYFILE` / `FCM_JSON`.
-  L'endpoint legacy `/fcm/send` (utilisé par `:fcmex` 0.6.x) a été
-  décommissionné par Google en juin 2024, donc on tape directement le
-  v1 `/v1/projects/{project_id}/messages:send` via `Req`.
+  Keeps the same callback contract as the previous custom HTTP client so
+  `BatchProcessor` and `Devices.mark_invalid/2` don't need to change:
 
-  Mapping d'erreurs :
+      :ok
+      | {:error, :token_invalid}     # hard failure — soft-delete the device
+      | {:error, :transient}         # retryable (network, 5xx, quota, auth)
+      | {:error, :not_configured}    # FCM creds absent in this env (dev/CI)
 
-    * `UNREGISTERED`, `NOT_FOUND`, `INVALID_ARGUMENT`,
-      `SENDER_ID_MISMATCH` → `{:error, :token_invalid}` — l'appelant
-      doit soft-delete la ligne device.
-    * HTTP 5xx, échec réseau, timeout → `{:error, :transient}` —
-      l'appelant peut retry via `RetryManager`.
-    * FCM non configuré (pas de creds dans l'env) → `{:error,
-      :not_configured}` — cas dev local.
+  Response atoms from `Pigeon.FCM` are mapped as follows:
+
+    * `:success`                                         → `:ok`
+    * `:unregistered`, `:invalid_argument`,
+      `:sender_id_mismatch`                              → `{:error, :token_invalid}`
+    * `:permission_denied`, `:third_party_auth_error`,
+      `:quota_exceeded`, `:unavailable`, `:internal`,
+      `:unspecified_error`, `:unknown_error`             → `{:error, :transient}`
+
+  Everything unknown degrades to `:transient` so we never drop a valid token
+  on an error we didn't anticipate.
   """
 
+  alias Pigeon.FCM.Notification, as: FCMNotification
+  alias WhisprNotifications.Delivery.FcmDispatcher
   alias WhisprNotifications.Devices.DeviceCache
+
   require Logger
 
   @callback send(DeviceCache.device(), map()) ::
@@ -27,68 +34,84 @@ defmodule WhisprNotifications.Delivery.FcmClient do
 
   @behaviour __MODULE__
 
-  @fcm_v1_endpoint "https://fcm.googleapis.com/v1/projects/"
-  @goth_name WhisprNotifications.Goth
+  @invalid_token_responses [:unregistered, :invalid_argument, :sender_id_mismatch]
 
   @impl true
-  def send(%{token: token} = device, payload)
+  def send(%{token: token, platform: platform}, payload)
       when is_binary(token) and token != "" do
-    with {:ok, project_id} <- fetch_project_id(),
-         {:ok, access_token} <- fetch_access_token(),
-         body <- build_body(device, payload),
-         {:ok, response} <- post(project_id, access_token, body) do
-      handle_response(response)
+    cond do
+      not fcm_enabled?() -> {:error, :not_configured}
+      not dispatcher_running?() -> {:error, :not_configured}
+      true -> do_push(token, platform, payload)
     end
   end
 
   def send(_device, _payload), do: {:error, :token_invalid}
 
-  # ----- config ----------------------------------------------------------
-
-  defp fetch_project_id do
-    cfg = Application.get_env(:whispr_notification, :fcm, [])
-
-    case Keyword.get(cfg, :project_id) do
-      id when is_binary(id) and id != "" -> {:ok, id}
-      _ -> {:error, :not_configured}
-    end
+  @doc """
+  Builds a `Pigeon.FCM.Notification` from the internal payload shape used by
+  `BatchProcessor` + `Formatter`. Public so it can be unit-tested without
+  standing up a dispatcher.
+  """
+  @spec build_notification(String.t(), atom(), map()) :: FCMNotification.t()
+  def build_notification(token, platform, payload) do
+    {:token, token}
+    |> FCMNotification.new(notification_map(payload), data_map(payload))
+    |> put_android(platform)
   end
 
-  defp fetch_access_token do
-    case goth_fetch().(@goth_name) do
-      {:ok, %{token: token}} -> {:ok, token}
-      {:ok, %{"access_token" => token}} -> {:ok, token}
-      {:error, reason} -> {:error, {:oauth_error, reason}}
-    end
+  @doc """
+  Pure mapping from a Pigeon FCM response atom back to the internal
+  `FcmClient` contract. Public for unit-testing.
+  """
+  @spec response_to_result(FCMNotification.t()) ::
+          :ok | {:error, :token_invalid | :transient}
+  def response_to_result(%FCMNotification{response: :success}), do: :ok
+
+  def response_to_result(%FCMNotification{response: resp})
+      when resp in @invalid_token_responses do
+    {:error, :token_invalid}
+  end
+
+  def response_to_result(%FCMNotification{response: resp}) do
+    Logger.warning("[FcmClient] transient FCM response: #{inspect(resp)}")
+    {:error, :transient}
+  end
+
+  # ----- private ---------------------------------------------------------
+
+  defp fcm_enabled? do
+    :whispr_notification
+    |> Application.get_env(:fcm, [])
+    |> Keyword.get(:enabled, false) == true
+  end
+
+  defp dispatcher_running? do
+    dispatcher_module() |> Process.whereis() != nil
+  end
+
+  defp dispatcher_module do
+    Application.get_env(:whispr_notification, :fcm_dispatcher, FcmDispatcher)
+  end
+
+  defp do_push(token, platform, payload) do
+    notification = build_notification(token, platform, payload)
+    dispatcher = dispatcher_module()
+
+    dispatcher.push(notification) |> response_to_result()
   rescue
-    # Goth worker non démarré (FCM désactivé dans cet env).
-    ArgumentError -> {:error, :not_configured}
-    e -> {:error, {:oauth_error, e}}
+    e ->
+      Logger.warning("[FcmClient] Pigeon push raised: #{inspect(e)}")
+      {:error, :transient}
   catch
     :exit, _ -> {:error, :not_configured}
-  end
-
-  # ----- payload ---------------------------------------------------------
-
-  defp build_body(%{token: token, platform: platform}, payload) do
-    message =
-      %{
-        "token" => to_string(token),
-        "notification" => notification_part(payload),
-        "data" => data_part(payload),
-        "android" => android_part(platform, payload),
-        "apns" => apns_part(platform)
-      }
-      |> drop_nil()
-
-    %{"message" => message}
   end
 
   # Accepts both a flat shape (`%{title, body, data}`) and the
   # `Formatter.to_platform_payload/3` shape
   # (`%{notification: %{title, body}, data: ...}`). The latter is what
   # BatchProcessor actually passes in.
-  defp notification_part(payload) do
+  defp notification_map(payload) do
     nested = Map.get(payload, :notification) || %{}
 
     %{
@@ -97,7 +120,7 @@ defmodule WhisprNotifications.Delivery.FcmClient do
     }
   end
 
-  defp data_part(payload) do
+  defp data_map(payload) do
     case Map.get(payload, :data) do
       map when is_map(map) and map_size(map) > 0 ->
         Map.new(map, fn {k, v} -> {to_string(k), to_string(v)} end)
@@ -107,107 +130,10 @@ defmodule WhisprNotifications.Delivery.FcmClient do
     end
   end
 
-  defp android_part(:android, _payload), do: %{"priority" => "HIGH"}
-  defp android_part(_, _), do: nil
+  # Android `priority: HIGH` matches the behaviour of the old custom client:
+  # notifications delivered immediately even if the device is dozing.
+  defp put_android(%FCMNotification{} = notif, :android),
+    do: %{notif | android: %{"priority" => "HIGH"}}
 
-  # APNS reste géré par `ApnsClient` via Pigeon ; ce module ne doit
-  # jamais viser un token iOS même si un device passe avec
-  # `platform: :ios`.
-  defp apns_part(_), do: nil
-
-  defp drop_nil(map) do
-    Enum.reduce(map, %{}, fn
-      {_k, nil}, acc -> acc
-      {k, v}, acc -> Map.put(acc, k, v)
-    end)
-  end
-
-  # ----- HTTP ------------------------------------------------------------
-
-  defp post(project_id, access_token, body) do
-    url = @fcm_v1_endpoint <> project_id <> "/messages:send"
-
-    opts =
-      Application.get_env(:whispr_notification, :fcm_req_options, [])
-      |> Keyword.put_new(:receive_timeout, 10_000)
-      |> Keyword.put_new(:retry, false)
-
-    request_fn = Application.get_env(:whispr_notification, :fcm_req_post, &Req.post/2)
-
-    full_opts =
-      [json: body, headers: [{"authorization", "Bearer " <> access_token}]] ++ opts
-
-    try do
-      request_fn.(url, full_opts)
-    rescue
-      e ->
-        Logger.warning("[FcmClient] request crashed: #{inspect(e)}")
-        {:error, :crashed}
-    end
-    |> case do
-      {:ok, %Req.Response{} = resp} ->
-        {:ok, resp}
-
-      {:ok, %{status: _} = resp} ->
-        {:ok, resp}
-
-      {:error, reason} ->
-        Logger.warning("[FcmClient] transient error #{inspect(reason)}")
-        {:error, :transient}
-    end
-  end
-
-  # ----- response --------------------------------------------------------
-
-  defp handle_response(%{status: status}) when status in 200..299, do: :ok
-
-  defp handle_response(%{status: status, body: body}) when status in 400..499 do
-    case fcm_error_code(body) do
-      code when code in ["UNREGISTERED", "NOT_FOUND", "INVALID_ARGUMENT", "SENDER_ID_MISMATCH"] ->
-        {:error, :token_invalid}
-
-      "UNAUTHENTICATED" ->
-        Logger.error("[FcmClient] FCM rejected OAuth token (UNAUTHENTICATED)")
-        {:error, :transient}
-
-      other ->
-        Logger.warning("[FcmClient] 4xx status=#{status} errorCode=#{inspect(other)}")
-        {:error, :token_invalid}
-    end
-  end
-
-  defp handle_response(%{status: status}) when status in 500..599 do
-    Logger.warning("[FcmClient] FCM 5xx status=#{status}")
-    {:error, :transient}
-  end
-
-  defp handle_response(other) do
-    Logger.warning("[FcmClient] unexpected response #{inspect(other)}")
-    {:error, :transient}
-  end
-
-  defp fcm_error_code(body) when is_map(body) do
-    case get_in(body, ["error", "details"]) do
-      details when is_list(details) ->
-        Enum.find_value(details, fn d -> Map.get(d, "errorCode") end)
-
-      _ ->
-        get_in(body, ["error", "status"])
-    end || "UNKNOWN"
-  end
-
-  defp fcm_error_code(body) when is_binary(body) do
-    case Jason.decode(body) do
-      {:ok, decoded} -> fcm_error_code(decoded)
-      _ -> "UNKNOWN"
-    end
-  end
-
-  defp fcm_error_code(_), do: "UNKNOWN"
-
-  # ----- DI hook pour les tests -----------------------------------------
-
-  defp goth_fetch do
-    Application.get_env(:whispr_notification, :fcm_goth_fetch, &Goth.fetch/1)
-  end
+  defp put_android(%FCMNotification{} = notif, _), do: notif
 end
