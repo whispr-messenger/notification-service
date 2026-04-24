@@ -9,29 +9,46 @@ defmodule WhisprNotifications.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      # Ecto Repo — must start before anything that queries the DB
-      WhisprNotifications.Repo,
-      # PubSub — must start before the Endpoint
-      {Phoenix.PubSub, name: WhisprNotifications.PubSub},
-      # JWKS cache — must start before the Endpoint so the Authenticate plug
-      # has a live GenServer to call on the very first request.
-      {WhisprNotifications.Auth.JwksCache, jwks_cache_opts()},
-      # Phoenix HTTP endpoint — binds the HTTP port declared in config
-      WhisprNotificationsWeb.Endpoint,
-      # Domain supervisors/workers
-      {WhisprNotifications.Devices.CacheManager, []},
-      {WhisprNotifications.Workers.TokenRefresher, []},
-      {WhisprNotifications.Workers.CacheSyncWorker, []},
-      {WhisprNotifications.Workers.CleanupWorker, []},
-      {WhisprNotifications.Workers.MetricsWorker, []},
-      {WhisprNotifications.Workers.ModerationSubscriber, []},
-      {WhisprNotifications.Workers.CallsSubscriber, []},
-      {WhisprNotifications.Workers.MessagingSubscriber, []}
-    ]
+    children =
+      [
+        # Ecto Repo — must start before anything that queries the DB
+        WhisprNotifications.Repo,
+        # PubSub — must start before the Endpoint
+        {Phoenix.PubSub, name: WhisprNotifications.PubSub},
+        # JWKS cache — must start before the Endpoint so the Authenticate plug
+        # has a live GenServer to call on the very first request.
+        {WhisprNotifications.Auth.JwksCache, jwks_cache_opts()},
+        # Phoenix HTTP endpoint — binds the HTTP port declared in config
+        WhisprNotificationsWeb.Endpoint,
+        # Domain supervisors/workers
+        {WhisprNotifications.Devices.CacheManager, []},
+        {WhisprNotifications.Workers.TokenRefresher, []},
+        {WhisprNotifications.Workers.CacheSyncWorker, []},
+        {WhisprNotifications.Workers.CleanupWorker, []},
+        {WhisprNotifications.Workers.MetricsWorker, []},
+        {WhisprNotifications.Workers.ModerationSubscriber, []},
+        {WhisprNotifications.Workers.CallsSubscriber, []},
+        {WhisprNotifications.Workers.MessagingSubscriber, []}
+      ] ++ fcm_goth_children()
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  # Goth démarre seulement si FCM est configuré (service account + project
+  # id présents). Sans ça on laisse le tree booter proprement en dev/CI et
+  # `FcmClient.send/2` renverra `{:error, :not_configured}`.
+  defp fcm_goth_children do
+    cfg = Application.get_env(:whispr_notification, :fcm, [])
+
+    with true <- Keyword.get(cfg, :enabled, false),
+         credentials when is_map(credentials) <- Keyword.get(cfg, :credentials) do
+      [{Goth, name: WhisprNotifications.Goth, source: {:service_account, credentials}}]
+    else
+      _ ->
+        Logger.info("[FCM] not configured — Goth worker not started")
+        []
+    end
   end
 
   # Required by Phoenix to reload configuration on config_change/3
