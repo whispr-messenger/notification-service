@@ -13,10 +13,12 @@ defmodule WhisprNotifications.Devices.DeviceCache do
   @type platform :: :ios | :android | :web
 
   @type device :: %{
-          token: String.t(),
-          platform: platform(),
+          required(:token) => String.t(),
+          required(:platform) => platform(),
           # optionnel: app bundle, env, etc.
-          app: String.t() | nil
+          optional(:app) => String.t() | nil,
+          optional(:device_id) => String.t() | nil,
+          optional(:internal_id) => String.t() | nil
         }
 
   @type t :: %__MODULE__{

@@ -5,10 +5,12 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
   (`:apns_client_mod`, `:fcm_client_mod`) pour faciliter les tests.
   """
 
-  alias WhisprNotifications.Badges
+  alias WhisprNotifications.{Badges, Devices}
   alias WhisprNotifications.Delivery.{ApnsClient, FcmClient, RetryManager}
   alias WhisprNotifications.Devices.DeviceCache
   alias WhisprNotifications.Notifications.{Formatter, Notification}
+
+  require Logger
 
   @spec deliver(Notification.t(), DeviceCache.t()) :: :ok
   def deliver(%Notification{} = notif, %DeviceCache{devices: devices}) do
@@ -32,19 +34,53 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
 
   defp send_to_device(:android, device, payload, attempt) do
     case fcm_client().send(device, payload) do
-      :ok -> :ok
-      {:error, _} -> maybe_retry(attempt)
+      :ok ->
+        :ok
+
+      {:error, :token_invalid} ->
+        soft_delete_invalid(device, "INVALID")
+        :ok
+
+      {:error, :not_configured} ->
+        # FCM pas configuré (dev local) — ne pas retry pour éviter le bruit.
+        :ok
+
+      {:error, _} ->
+        maybe_retry(attempt)
     end
   end
 
   defp send_to_device(:ios, device, payload, attempt) do
     case apns_client().send(device, payload) do
-      :ok -> :ok
-      {:error, _} -> maybe_retry(attempt)
+      :ok ->
+        :ok
+
+      {:error, :token_invalid} ->
+        soft_delete_invalid(device, "INVALID")
+        :ok
+
+      {:error, _} ->
+        maybe_retry(attempt)
     end
   end
 
   defp send_to_device(:web, _device, _payload, _attempt), do: :ok
+
+  # Marque le token FCM/APNS invalide en base — le prochain fan-out ne
+  # le verra plus dans list_active_for_user/1.
+  defp soft_delete_invalid(%{token: token}, reason)
+       when is_binary(token) and token != "" do
+    case Devices.mark_invalid(token, reason) do
+      :ok -> :ok
+      {:error, :not_found} -> :ok
+    end
+  rescue
+    e ->
+      Logger.warning("[BatchProcessor] mark_invalid raised: #{inspect(e)}")
+      :ok
+  end
+
+  defp soft_delete_invalid(_device, _reason), do: :ok
 
   defp maybe_retry(attempt) do
     if RetryManager.should_retry?(attempt) do
