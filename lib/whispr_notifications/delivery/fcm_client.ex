@@ -84,10 +84,16 @@ defmodule WhisprNotifications.Delivery.FcmClient do
     %{"message" => message}
   end
 
+  # Accepts both a flat shape (`%{title, body, data}`) and the
+  # `Formatter.to_platform_payload/3` shape
+  # (`%{notification: %{title, body}, data: ...}`). The latter is what
+  # BatchProcessor actually passes in.
   defp notification_part(payload) do
+    nested = Map.get(payload, :notification) || %{}
+
     %{
-      "title" => to_string(Map.get(payload, :title, "")),
-      "body" => to_string(Map.get(payload, :body, ""))
+      "title" => to_string(Map.get(payload, :title) || Map.get(nested, :title, "")),
+      "body" => to_string(Map.get(payload, :body) || Map.get(nested, :body, ""))
     }
   end
 

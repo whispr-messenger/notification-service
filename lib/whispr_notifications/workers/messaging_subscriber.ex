@@ -17,8 +17,10 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   use GenServer
   require Logger
 
-  alias WhisprNotifications.Badges
-  alias WhisprNotifications.RedisConfig
+  alias WhisprNotifications.{Badges, RedisConfig}
+  alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.AuthClient
+  alias WhisprNotifications.Notifications.{History, Notification}
 
   @channels [
     "whispr:messaging:new_message",
@@ -95,13 +97,20 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   end
 
   @doc """
-  Route un payload décodé vers l'action badge correspondante. Exposé pour les
-  tests afin de tester la logique sans passer par Redis.
+  Route un payload décodé vers l'action badge + dispatch push
+  correspondante. Exposé pour les tests afin de tester la logique sans
+  passer par Redis.
   """
   @spec process_message(String.t(), map()) :: :ok
   def process_message("whispr:messaging:new_message", payload) do
     count = positive_count(Map.get(payload, "count", 1))
-    payload |> target_user_ids() |> Enum.each(&Badges.incr(&1, count))
+    recipients = target_user_ids(payload)
+
+    Enum.each(recipients, fn user_id ->
+      Badges.incr(user_id, count)
+      dispatch_push(user_id, payload)
+    end)
+
     :ok
   end
 
@@ -138,4 +147,49 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
 
   defp positive_count(n) when is_integer(n) and n > 0, do: n
   defp positive_count(_), do: 1
+
+  # Dispatch FCM/APNS push to every active device of `user_id`. Le
+  # contenu texte est chiffré E2EE côté client, donc on envoie un body
+  # générique basé sur `message_type` — le client déchiffre en
+  # foreground et remplace par le vrai texte au tap.
+  #
+  # On tape directement AuthClient.fetch_devices pour avoir la liste
+  # fraîche côté base ; CacheManager (qui fait du cache en mémoire)
+  # pourrait rater un device fraîchement enregistré via POST /devices.
+  defp dispatch_push(user_id, payload) when is_binary(user_id) and user_id != "" do
+    notif =
+      Notification.new(%{
+        user_id: user_id,
+        type: :message,
+        title: Map.get(payload, "sender_name") || "Nouveau message",
+        body: body_for_type(Map.get(payload, "message_type")),
+        conversation_id: Map.get(payload, "conversation_id"),
+        context: %{
+          "conversation_id" => Map.get(payload, "conversation_id"),
+          "message_id" => Map.get(payload, "message_id"),
+          "sender_id" => Map.get(payload, "sender_id")
+        },
+        metadata: %{}
+      })
+
+    :ok = History.save(notif)
+
+    case AuthClient.fetch_devices(user_id) do
+      {:ok, cache} -> BatchProcessor.deliver(notif, cache)
+      _ -> :ok
+    end
+  rescue
+    e ->
+      Logger.warning("[MessagingSubscriber] dispatch_push raised: #{inspect(e)}")
+      :ok
+  end
+
+  defp dispatch_push(_user_id, _payload), do: :ok
+
+  defp body_for_type("photo"), do: "📷 Photo"
+  defp body_for_type("voice"), do: "🎤 Message vocal"
+  defp body_for_type("video"), do: "🎥 Vidéo"
+  defp body_for_type("file"), do: "📎 Fichier"
+  defp body_for_type("location"), do: "📍 Localisation"
+  defp body_for_type(_), do: "Nouveau message"
 end
