@@ -31,6 +31,9 @@ defmodule WhisprNotificationsWeb.Router do
     get("/v1/badge", BadgeController, :show)
     get("/v1/settings", SettingsController, :show)
     put("/v1/settings", SettingsController, :update)
+
+    post("/v1/devices", DevicesController, :register)
+    delete("/v1/devices/:device_id", DevicesController, :unregister)
   end
 
   # ── /notification/api (when the gateway forwards the full path) ──
@@ -54,5 +57,8 @@ defmodule WhisprNotificationsWeb.Router do
     get("/v1/badge", BadgeController, :show)
     get("/v1/settings", SettingsController, :show)
     put("/v1/settings", SettingsController, :update)
+
+    post("/v1/devices", DevicesController, :register)
+    delete("/v1/devices/:device_id", DevicesController, :unregister)
   end
 end
