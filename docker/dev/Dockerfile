@@ -1,4 +1,4 @@
-FROM elixir:1.19
+FROM hexpm/elixir:1.18.4-erlang-27.3.4-debian-bookworm-20250407-slim
 
 WORKDIR /app
 
