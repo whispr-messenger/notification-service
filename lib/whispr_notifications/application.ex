@@ -29,15 +29,20 @@ defmodule WhisprNotifications.Application do
         {WhisprNotifications.Workers.ModerationSubscriber, []},
         {WhisprNotifications.Workers.CallsSubscriber, []},
         {WhisprNotifications.Workers.MessagingSubscriber, []}
-      ] ++ fcm_children()
+      ] ++ push_children()
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
-  # Goth + Pigeon FCM dispatcher only start when FCM is fully configured
-  # (service account + project id present). Otherwise we let the tree boot
-  # cleanly in dev/CI and `FcmClient.send/2` returns `{:error, :not_configured}`.
+  # Push dispatchers (Pigeon FCM + Pigeon APNS) only start when their
+  # respective creds are present. Otherwise we let the tree boot cleanly in
+  # dev/CI and the matching client returns `{:error, :not_configured}`.
+  defp push_children do
+    fcm_children() ++ apns_children()
+  end
+
+  # Goth + Pigeon FCM dispatcher — needs FCM service account + project id.
   defp fcm_children do
     cfg = Application.get_env(:whispr_notification, :fcm, [])
 
@@ -51,6 +56,18 @@ defmodule WhisprNotifications.Application do
       _ ->
         Logger.info("[FCM] not configured — Goth + FcmDispatcher not started")
         []
+    end
+  end
+
+  # Pigeon APNS dispatcher — needs the .p8 path + key id + team id.
+  defp apns_children do
+    cfg = Application.get_env(:whispr_notification, :apns, [])
+
+    if Keyword.get(cfg, :enabled, false) do
+      [WhisprNotifications.Delivery.ApnsDispatcher]
+    else
+      Logger.info("[APNS] not configured — ApnsDispatcher not started")
+      []
     end
   end
 
