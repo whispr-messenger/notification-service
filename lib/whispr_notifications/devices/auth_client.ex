@@ -37,6 +37,9 @@ defmodule WhisprNotifications.Devices.AuthClient do
 
     e ->
       {:error, {:db_error, e}}
+  catch
+    :exit, reason ->
+      {:error, {:db_unavailable, reason}}
   end
 
   def fetch_devices(_), do: {:error, :invalid_user_id}
