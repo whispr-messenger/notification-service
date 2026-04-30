@@ -8,9 +8,12 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   Payload contract (best effort, fields may be absent):
 
       %{
-        "user_id" => "uuid",          # target user (read events)
-        "target_user_ids" => [...],   # recipients (new_message fanout)
-        "count" => 1                  # optional batch size
+        "user_id" => "uuid",            # target user (read events)
+        "target_user_ids" => [...],     # recipients (new_message fanout)
+        "mentioned_user_ids" => [...],  # subset of recipients that were @-mentioned
+                                        # (publisher must populate; body is E2EE so the
+                                        # server cannot derive mentions itself)
+        "count" => 1                    # optional batch size
       }
   """
 
@@ -20,7 +23,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   alias WhisprNotifications.{Badges, RedisConfig}
   alias WhisprNotifications.Delivery.BatchProcessor
   alias WhisprNotifications.Devices.AuthClient
-  alias WhisprNotifications.Notifications.{History, Notification}
+  alias WhisprNotifications.Notifications.{Filter, History, Notification}
 
   @channels [
     "whispr:messaging:new_message",
@@ -105,10 +108,11 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   def process_message("whispr:messaging:new_message", payload) do
     count = positive_count(Map.get(payload, "count", 1))
     recipients = target_user_ids(payload)
+    mentioned = mentioned_user_ids(payload)
 
     Enum.each(recipients, fn user_id ->
       Badges.incr(user_id, count)
-      dispatch_push(user_id, payload)
+      dispatch_push(user_id, payload, user_id in mentioned)
     end)
 
     :ok
@@ -145,6 +149,13 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
     end
   end
 
+  defp mentioned_user_ids(payload) do
+    case Map.get(payload, "mentioned_user_ids") do
+      list when is_list(list) -> Enum.filter(list, &(is_binary(&1) and &1 != ""))
+      _ -> []
+    end
+  end
+
   defp positive_count(n) when is_integer(n) and n > 0, do: n
   defp positive_count(_), do: 1
 
@@ -156,7 +167,8 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   # On tape directement AuthClient.fetch_devices pour avoir la liste
   # fraîche côté base ; CacheManager (qui fait du cache en mémoire)
   # pourrait rater un device fraîchement enregistré via POST /devices.
-  defp dispatch_push(user_id, payload) when is_binary(user_id) and user_id != "" do
+  defp dispatch_push(user_id, payload, mentioned?)
+       when is_binary(user_id) and user_id != "" and is_boolean(mentioned?) do
     notif =
       Notification.new(%{
         user_id: user_id,
@@ -169,14 +181,18 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
           "message_id" => Map.get(payload, "message_id"),
           "sender_id" => Map.get(payload, "sender_id")
         },
-        metadata: %{}
+        metadata: %{"mentioned" => mentioned?}
       })
 
     :ok = History.save(notif)
 
-    case AuthClient.fetch_devices(user_id) do
-      {:ok, cache} -> BatchProcessor.deliver(notif, cache)
-      _ -> :ok
+    if Filter.should_send?(notif) do
+      case AuthClient.fetch_devices(user_id) do
+        {:ok, cache} -> BatchProcessor.deliver(notif, cache)
+        _ -> :ok
+      end
+    else
+      :ok
     end
   rescue
     e ->
@@ -184,7 +200,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
       :ok
   end
 
-  defp dispatch_push(_user_id, _payload), do: :ok
+  defp dispatch_push(_user_id, _payload, _mentioned?), do: :ok
 
   defp body_for_type("photo"), do: "📷 Photo"
   defp body_for_type("voice"), do: "🎤 Message vocal"
