@@ -18,6 +18,8 @@ defmodule WhisprNotifications.Preferences.ConversationSettings do
     field :muted, :boolean, default: false
     field :mute_until, :utc_datetime
     field :priority, Ecto.Enum, values: @priorities, default: :normal
+    # nil = inherit user-level value, true/false = explicit per-conversation override
+    field :mentions_only, :boolean
 
     timestamps(type: :utc_datetime)
   end
@@ -30,10 +32,11 @@ defmodule WhisprNotifications.Preferences.ConversationSettings do
           conversation_id: String.t() | nil,
           muted: boolean(),
           mute_until: DateTime.t() | nil,
-          priority: priority()
+          priority: priority(),
+          mentions_only: boolean() | nil
         }
 
-  @cast_fields [:user_id, :conversation_id, :muted, :mute_until, :priority]
+  @cast_fields [:user_id, :conversation_id, :muted, :mute_until, :priority, :mentions_only]
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(settings, attrs) do

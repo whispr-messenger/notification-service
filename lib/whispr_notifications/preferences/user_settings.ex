@@ -17,6 +17,7 @@ defmodule WhisprNotifications.Preferences.UserSettings do
     field :message_email_enabled, :boolean, default: false
     field :system_push_enabled, :boolean, default: true
     field :marketing_push_enabled, :boolean, default: false
+    field :mentions_only, :boolean, default: false
     field :quiet_hours_start, :time
     field :quiet_hours_end, :time
 
@@ -32,6 +33,7 @@ defmodule WhisprNotifications.Preferences.UserSettings do
           message_email_enabled: boolean(),
           system_push_enabled: boolean(),
           marketing_push_enabled: boolean(),
+          mentions_only: boolean(),
           quiet_hours_start: Time.t() | nil,
           quiet_hours_end: Time.t() | nil
         }
@@ -44,6 +46,7 @@ defmodule WhisprNotifications.Preferences.UserSettings do
     :message_email_enabled,
     :system_push_enabled,
     :marketing_push_enabled,
+    :mentions_only,
     :quiet_hours_start,
     :quiet_hours_end
   ]
