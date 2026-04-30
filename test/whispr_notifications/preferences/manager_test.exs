@@ -167,5 +167,72 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
 
       refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 23:00:00Z])
     end
+
+    test "blocks a non-mention message when user mentions_only is true" do
+      uid = unique_id("pref-mgr-mentions")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          metadata: %{"mentioned" => false}
+        })
+
+      refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "lets a mention through when user mentions_only is true" do
+      uid = unique_id("pref-mgr-mentions-ok")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          metadata: %{"mentioned" => true}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "conversation mentions_only=false overrides user mentions_only=true" do
+      uid = unique_id("pref-mgr-conv-override")
+      cid = unique_id("pref-mgr-conv-override-c")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      {:ok, _} =
+        %ConversationSettings{}
+        |> ConversationSettings.changeset(%{
+          "user_id" => uid,
+          "conversation_id" => cid,
+          "mentions_only" => false
+        })
+        |> WhisprNotifications.Repo.insert_or_update()
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: cid,
+          metadata: %{"mentioned" => false}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "non-:message notifs ignore mentions_only" do
+      uid = unique_id("pref-mgr-system")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          type: :system,
+          metadata: %{"mentioned" => false}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
   end
 end
