@@ -70,6 +70,7 @@ defmodule WhisprNotificationsWeb.SettingsController do
       message_email_enabled: s.message_email_enabled,
       system_push_enabled: s.system_push_enabled,
       marketing_push_enabled: s.marketing_push_enabled,
+      mentions_only: s.mentions_only,
       quiet_hours_start: s.quiet_hours_start,
       quiet_hours_end: s.quiet_hours_end
     }
