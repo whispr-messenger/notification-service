@@ -13,6 +13,7 @@ defmodule WhisprNotifications.Security.LoggingTest do
 
   import ExUnit.CaptureLog
 
+  alias Pigeon.APNS.Notification, as: APNSNotification
   alias WhisprNotifications.Delivery.ApnsClient
   alias WhisprNotifications.Events.ModerationEvents
 
@@ -20,19 +21,32 @@ defmodule WhisprNotifications.Security.LoggingTest do
   @sentinel_report "sentinel-report-zzzz"
   @sentinel_appeal "sentinel-appeal-zzzz"
 
+  defmodule LoggingStubDispatcherOK do
+    @moduledoc false
+    def push(%APNSNotification{} = notif), do: %{notif | response: :success}
+  end
+
+  defmodule LoggingStubDispatcherErr do
+    @moduledoc false
+    def push(%APNSNotification{} = notif), do: %{notif | response: :bad_device_token}
+  end
+
   setup do
-    original = Application.get_env(:whispr_notification, :apns_push_fun)
+    previous_apns = Application.get_env(:whispr_notification, :apns)
+    previous_disp = Application.get_env(:whispr_notification, :apns_dispatcher)
+
+    Application.put_env(:whispr_notification, :apns, enabled: true)
 
     on_exit(fn ->
-      if original do
-        Application.put_env(:whispr_notification, :apns_push_fun, original)
-      else
-        Application.delete_env(:whispr_notification, :apns_push_fun)
-      end
+      restore(:apns, previous_apns)
+      restore(:apns_dispatcher, previous_disp)
     end)
 
     :ok
   end
+
+  defp restore(key, nil), do: Application.delete_env(:whispr_notification, key)
+  defp restore(key, value), do: Application.put_env(:whispr_notification, key, value)
 
   # The console formatter puts metadata before the level tag and the message
   # after it. Splitting on [level] isolates the message body so we can assert
@@ -44,12 +58,24 @@ defmodule WhisprNotifications.Security.LoggingTest do
   end
 
   describe "APNS device token" do
+    setup do
+      {:ok, ok_pid} = Agent.start_link(fn -> :ok end, name: LoggingStubDispatcherOK)
+      {:ok, err_pid} = Agent.start_link(fn -> :ok end, name: LoggingStubDispatcherErr)
+
+      on_exit(fn ->
+        if Process.alive?(ok_pid), do: Agent.stop(ok_pid)
+        if Process.alive?(err_pid), do: Agent.stop(err_pid)
+      end)
+
+      :ok
+    end
+
     test "raw token is never written to success logs" do
       raw_token = "fake-ios-token-" <> Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
       device = %{token: raw_token, platform: :ios, app: "com.whispr.app"}
-      Application.put_env(:whispr_notification, :apns_push_fun, fn _, _ -> :ok end)
+      Application.put_env(:whispr_notification, :apns_dispatcher, LoggingStubDispatcherOK)
 
-      log = capture_log([level: :info], fn -> ApnsClient.send(device, %{}) end)
+      log = capture_log([level: :info], fn -> ApnsClient.send(device, %{"aps" => %{}}) end)
 
       refute log =~ raw_token
       assert log =~ "***"
@@ -58,12 +84,9 @@ defmodule WhisprNotifications.Security.LoggingTest do
     test "raw token is never written to error logs" do
       raw_token = "fake-ios-token-" <> Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
       device = %{token: raw_token, platform: :ios, app: "com.whispr.app"}
+      Application.put_env(:whispr_notification, :apns_dispatcher, LoggingStubDispatcherErr)
 
-      Application.put_env(:whispr_notification, :apns_push_fun, fn _, _ ->
-        {:error, :invalid_device_token}
-      end)
-
-      log = capture_log([level: :info], fn -> ApnsClient.send(device, %{}) end)
+      log = capture_log([level: :info], fn -> ApnsClient.send(device, %{"aps" => %{}}) end)
 
       refute log =~ raw_token
     end

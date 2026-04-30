@@ -77,18 +77,14 @@ config :whispr_notification, :services,
 # FCM / APNS
 # ======================================================================
 #
-# FCM HTTP v1 — configured via config :whispr_notification, :fcm in
+# FCM HTTP v1 — configured via `config :whispr_notification, :fcm` in
 # runtime.exs (OAuth via Goth). The project_id/service-account JSON
 # default to FCM_PROJECT_ID / FCM_JSON_KEYFILE env vars.
-
-config :pigeon, :apns,
-  apns_default: %{
-    key: System.get_env("APNS_KEY_PATH"),
-    key_identifier: System.get_env("APNS_KEY_ID"),
-    team_id: System.get_env("APNS_TEAM_ID"),
-    mode: String.to_atom(System.get_env("APNS_MODE", "dev")),
-    ping_interval: 600_000
-  }
+#
+# APNS HTTP/2 — configured via `config :whispr_notification, :apns`
+# (and the per-dispatcher `WhisprNotifications.Delivery.ApnsDispatcher`
+# block) in runtime.exs from APNS_KEY_PATH / APNS_KEY_ID / APNS_TEAM_ID
+# / APNS_MODE.
 
 # ======================================================================
 # Logger
