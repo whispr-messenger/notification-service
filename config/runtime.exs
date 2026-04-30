@@ -159,3 +159,42 @@ if is_binary(fcm_project_id) and fcm_project_id != "" do
     auth: WhisprNotifications.Goth,
     project_id: fcm_project_id
 end
+
+# WHISPR-1176 : APNS HTTP/2 + JWT ES256 via Pigeon. The dispatcher is only
+# added to the supervision tree by `WhisprNotifications.Application` when
+# `enabled` below is `true`. The `:apns` keyword is the source of truth for
+# `ApnsClient.send/2`'s `{:error, :not_configured}` short-circuit. Never
+# log the .p8 contents.
+apns_key_path = System.get_env("APNS_KEY_PATH")
+apns_key_id = System.get_env("APNS_KEY_ID")
+apns_team_id = System.get_env("APNS_TEAM_ID")
+
+apns_mode =
+  case System.get_env("APNS_MODE") do
+    "prod" -> :prod
+    _ -> :dev
+  end
+
+apns_default_topic = System.get_env("APNS_DEFAULT_TOPIC")
+
+apns_enabled? =
+  is_binary(apns_key_path) and apns_key_path != "" and
+    is_binary(apns_key_id) and apns_key_id != "" and
+    is_binary(apns_team_id) and apns_team_id != ""
+
+config :whispr_notification, :apns,
+  enabled: apns_enabled?,
+  key_path: apns_key_path,
+  key_id: apns_key_id,
+  team_id: apns_team_id,
+  mode: apns_mode,
+  default_topic: apns_default_topic
+
+if apns_enabled? do
+  config :whispr_notification, WhisprNotifications.Delivery.ApnsDispatcher,
+    adapter: Pigeon.APNS,
+    key: apns_key_path,
+    key_identifier: apns_key_id,
+    team_id: apns_team_id,
+    mode: apns_mode
+end
