@@ -28,7 +28,8 @@ defmodule WhisprNotifications.Application do
         {WhisprNotifications.Workers.MetricsWorker, []},
         {WhisprNotifications.Workers.ModerationSubscriber, []},
         {WhisprNotifications.Workers.CallsSubscriber, []},
-        {WhisprNotifications.Workers.MessagingSubscriber, []}
+        {WhisprNotifications.Workers.MessagingSubscriber, []},
+        {WhisprNotifications.Workers.ContactsSubscriber, []}
       ] ++ push_children()
 
     opts = [strategy: :one_for_one, name: WhisprNotifications.Supervisor]
