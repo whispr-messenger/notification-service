@@ -2,3 +2,16 @@
 # Les rapports Cobertura générés dans Docker listent des <source> du type /app/lib, /app/test/support, etc.
 fixes:
   - "/app/::"
+
+# Seuils de coverage : on tolere une legere baisse pour eviter de bloquer
+# des PRs d'integration ou de refactor sur quelques lignes manquantes.
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
+    patch:
+      default:
+        target: 80%
+        threshold: 10%
