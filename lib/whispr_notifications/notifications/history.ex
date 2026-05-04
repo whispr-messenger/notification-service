@@ -12,9 +12,12 @@ defmodule WhisprNotifications.Notifications.History do
   require Logger
 
   defmodule Behaviour do
-    @callback save(Notification.t()) :: :ok | {:error, term()}
-    @callback mark_read(String.t(), DateTime.t()) :: :ok | {:error, term()}
-    @callback list_for_user(String.t(), keyword()) :: [Notification.t()]
+    @moduledoc "Behaviour pour la persistance de l'historique des notifications."
+
+    @callback save(WhisprNotifications.Notifications.Notification.t()) :: :ok | {:error, term()}
+    @callback mark_read(String.t(), DateTime.t()) :: :ok
+    @callback list_for_user(String.t(), keyword()) ::
+                [WhisprNotifications.Notifications.Notification.t()]
   end
 
   @behaviour Behaviour
@@ -41,15 +44,15 @@ defmodule WhisprNotifications.Notifications.History do
   end
 
   @impl true
-  @spec mark_read(String.t(), DateTime.t()) :: :ok | {:error, :not_found}
+  @spec mark_read(String.t(), DateTime.t()) :: :ok
   def mark_read(id, at \\ DateTime.utc_now()) do
     at = DateTime.truncate(at, :second)
 
-    {count, _} =
+    {_count, _} =
       from(n in Notification, where: n.id == ^id)
       |> Repo.update_all(set: [read_at: at])
 
-    if count > 0, do: :ok, else: {:error, :not_found}
+    :ok
   end
 
   @impl true

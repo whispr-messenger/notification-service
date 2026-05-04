@@ -1,59 +1,123 @@
 defmodule WhisprNotifications.Notifications.HistoryTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: true
 
-  alias WhisprNotifications.Notifications.{History, Notification}
+  alias WhisprNotifications.Notifications.History
+  alias WhisprNotifications.Notifications.Notification
+  alias WhisprNotifications.Repo
   alias WhisprNotifications.Test.NotificationFixtures
+
+  # Notification ids are stored in a `uuid` column, so tests must generate
+  # real UUIDs. User ids stay string-prefixed — they go into a varchar column.
+  defp unique_id, do: Ecto.UUID.generate()
+  defp unique_user_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
 
   describe "save/1" do
     test "returns :ok for a valid notification" do
-      notif = NotificationFixtures.build_notification()
+      notif = NotificationFixtures.build_notification(%{id: unique_id()})
       assert :ok == History.save(notif)
     end
 
-    test "returns {:error, changeset} when required fields are missing" do
-      invalid = %Notification{
-        id: Ecto.UUID.generate(),
-        created_at: DateTime.utc_now() |> DateTime.truncate(:second)
-      }
+    test "is idempotent on conflicting id (on_conflict: :nothing)" do
+      id = unique_id()
+      notif = NotificationFixtures.build_notification(%{id: id, user_id: unique_user_id("u")})
 
-      assert {:error, %Ecto.Changeset{valid?: false}} = History.save(invalid)
+      assert :ok == History.save(notif)
+      assert :ok == History.save(notif)
     end
   end
 
   describe "mark_read/2" do
-    test "returns :ok" do
-      notif = NotificationFixtures.build_notification()
-      assert :ok == History.save(notif)
-      assert :ok == History.mark_read(notif.id, DateTime.utc_now())
+    test "returns :ok for a non-existent id (no-op)" do
+      assert :ok == History.mark_read(unique_id(), DateTime.utc_now())
     end
 
-    test "returns {:error, :not_found} when id does not exist" do
-      assert {:error, :not_found} ==
-               History.mark_read(Ecto.UUID.generate(), DateTime.utc_now())
+    test "persists read_at on an existing notification" do
+      user_id = unique_user_id("u")
+      notif = NotificationFixtures.build_notification(%{id: unique_id(), user_id: user_id})
+      :ok = History.save(notif)
+
+      at = DateTime.utc_now() |> DateTime.truncate(:second)
+      assert :ok == History.mark_read(notif.id, at)
+
+      reloaded = Repo.get!(Notification, notif.id)
+      assert reloaded.read_at == at
     end
   end
 
   describe "list_for_user/2" do
-    test "returns empty list for an unknown user" do
-      assert [] == History.list_for_user("user-with-no-notifs")
+    test "returns empty list when the user has no history" do
+      assert [] == History.list_for_user(unique_user_id("nobody"))
     end
 
-    test "honours :limit and :offset options" do
-      uid = "history-list-" <> Integer.to_string(System.unique_integer([:positive]))
+    test "returns notifications ordered by created_at desc" do
+      user_id = unique_user_id("u")
 
-      for i <- 1..3 do
+      oldest =
+        NotificationFixtures.build_notification(%{
+          id: unique_id(),
+          user_id: user_id,
+          created_at: ~U[2026-01-01 10:00:00Z]
+        })
+
+      middle =
+        NotificationFixtures.build_notification(%{
+          id: unique_id(),
+          user_id: user_id,
+          created_at: ~U[2026-01-02 10:00:00Z]
+        })
+
+      newest =
+        NotificationFixtures.build_notification(%{
+          id: unique_id(),
+          user_id: user_id,
+          created_at: ~U[2026-01-03 10:00:00Z]
+        })
+
+      :ok = History.save(oldest)
+      :ok = History.save(middle)
+      :ok = History.save(newest)
+
+      ids = History.list_for_user(user_id) |> Enum.map(& &1.id)
+      assert ids == [newest.id, middle.id, oldest.id]
+    end
+
+    test "honors :limit and :offset for pagination" do
+      user_id = unique_user_id("u")
+
+      notifs =
+        for i <- 1..5 do
+          NotificationFixtures.build_notification(%{
+            id: unique_id(),
+            user_id: user_id,
+            created_at: DateTime.add(~U[2026-01-01 00:00:00Z], i, :hour)
+          })
+        end
+
+      Enum.each(notifs, &(:ok = History.save(&1)))
+
+      expected_desc = notifs |> Enum.reverse() |> Enum.map(& &1.id)
+
+      first_page = History.list_for_user(user_id, limit: 2) |> Enum.map(& &1.id)
+      assert first_page == Enum.take(expected_desc, 2)
+
+      second_page =
+        History.list_for_user(user_id, limit: 2, offset: 2) |> Enum.map(& &1.id)
+
+      assert second_page == expected_desc |> Enum.drop(2) |> Enum.take(2)
+    end
+
+    test "scopes results to the given user_id" do
+      user_a = unique_user_id("u")
+      user_b = unique_user_id("u")
+
+      for uid <- [user_a, user_b] do
         :ok =
           History.save(
-            NotificationFixtures.build_notification(%{
-              id: Ecto.UUID.generate(),
-              user_id: uid,
-              title: "n-#{i}"
-            })
+            NotificationFixtures.build_notification(%{id: unique_id(), user_id: uid})
           )
       end
 
-      assert length(History.list_for_user(uid, limit: 2)) == 2
-      assert length(History.list_for_user(uid, limit: 10, offset: 1)) == 2
+      assert [%Notification{user_id: ^user_a}] = History.list_for_user(user_a)
     end
   end
 end

@@ -5,21 +5,54 @@ defmodule WhisprNotificationsWeb.SettingsController do
   alias WhisprNotifications.Preferences.UserSettings
 
   # GET /api/settings/:id
-  def show(conn, %{"id" => user_id}) do
-    with {:ok, user_settings} <- Manager.get_user_settings(user_id) do
-      json(conn, serialize(user_settings))
-    else
-      _ -> send_resp(conn, 404, "")
+  def show(conn, %{"id" => user_id}) when is_binary(user_id) and user_id != "" do
+    render_settings(conn, user_id)
+  end
+
+  # GET /api/v1/settings — authenticated user from JWT
+  def show(conn, _params) do
+    case conn.assigns[:jwt_sub] do
+      user_id when is_binary(user_id) and user_id != "" ->
+        render_settings(conn, user_id)
+
+      _ ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "missing_user"})
     end
   end
 
   # PUT /api/settings/:id
-  def update(conn, %{"id" => user_id} = params) do
+  def update(conn, %{"id" => user_id} = params)
+      when is_binary(user_id) and user_id != "" do
     attrs = Map.drop(params, ["id"])
+    do_update(conn, user_id, attrs)
+  end
 
+  # PUT /api/v1/settings — authenticated user from JWT
+  def update(conn, params) do
+    case conn.assigns[:jwt_sub] do
+      user_id when is_binary(user_id) and user_id != "" ->
+        do_update(conn, user_id, Map.drop(params, ["id"]))
+
+      _ ->
+        conn
+        |> put_status(:unauthorized)
+        |> json(%{error: "missing_user"})
+    end
+  end
+
+  defp render_settings(conn, user_id) do
+    case Manager.get_user_settings(user_id) do
+      {:ok, user_settings} -> json(conn, serialize(user_settings))
+      _ -> send_resp(conn, 404, "")
+    end
+  end
+
+  defp do_update(conn, user_id, attrs) do
     case Manager.update_user_settings(user_id, attrs) do
-      {:ok, %UserSettings{} = settings} ->
-        json(conn, serialize(settings))
+      {:ok, %UserSettings{}} ->
+        send_resp(conn, 204, "")
 
       {:error, changeset} ->
         conn
@@ -37,6 +70,7 @@ defmodule WhisprNotificationsWeb.SettingsController do
       message_email_enabled: s.message_email_enabled,
       system_push_enabled: s.system_push_enabled,
       marketing_push_enabled: s.marketing_push_enabled,
+      mentions_only: s.mentions_only,
       quiet_hours_start: s.quiet_hours_start,
       quiet_hours_end: s.quiet_hours_end
     }

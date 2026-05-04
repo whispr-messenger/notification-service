@@ -4,16 +4,18 @@ defmodule WhisprNotifications.Preferences.Manager do
   Persiste via Ecto sur PostgreSQL.
   """
 
-  alias WhisprNotifications.Preferences.{UserSettings, ConversationSettings}
   alias WhisprNotifications.Notifications.Notification
+  alias WhisprNotifications.Preferences.{ConversationSettings, UserSettings}
   alias WhisprNotifications.Repo
 
   defmodule Behaviour do
+    @moduledoc "Behaviour pour les dépendances injectables du Manager de préférences."
+
     @callback get_user_settings(String.t()) ::
-                {:ok, UserSettings.t()} | {:error, term()}
+                {:ok, WhisprNotifications.Preferences.UserSettings.t()} | {:error, term()}
 
     @callback get_conversation_settings(String.t(), String.t()) ::
-                {:ok, ConversationSettings.t()} | {:error, term()}
+                {:ok, WhisprNotifications.Preferences.ConversationSettings.t()} | {:error, term()}
   end
 
   @behaviour Behaviour
@@ -88,24 +90,51 @@ defmodule WhisprNotifications.Preferences.Manager do
 
   @spec allowed_for_notification?(Notification.t(), DateTime.t()) :: boolean()
   def allowed_for_notification?(%Notification{} = notif, now \\ DateTime.utc_now()) do
-    user_ok =
+    user_settings =
       case get_user_settings(notif.user_id) do
-        {:ok, us} -> not UserSettings.quiet_now?(us, now)
-        _ -> true
+        {:ok, us} -> us
+        _ -> nil
       end
 
-    conv_ok =
+    conv_settings =
       if is_nil(notif.conversation_id) do
-        true
+        nil
       else
         case get_conversation_settings(notif.user_id, notif.conversation_id) do
-          {:ok, cs} -> not ConversationSettings.muted_now?(cs, now)
-          _ -> true
+          {:ok, cs} -> cs
+          _ -> nil
         end
       end
 
-    user_ok and conv_ok
+    user_ok = is_nil(user_settings) or not UserSettings.quiet_now?(user_settings, now)
+    conv_ok = is_nil(conv_settings) or not ConversationSettings.muted_now?(conv_settings, now)
+    mention_ok = mention_allowed?(notif, user_settings, conv_settings)
+
+    user_ok and conv_ok and mention_ok
   end
+
+  # `mentions_only` blocks message-type notifications that are not @-mentions
+  # for the recipient. The flag is read with conversation-level overriding
+  # user-level (nil at conversation level falls back to the user value).
+  # Non-:message notifs (system, group invites, …) are never affected.
+  defp mention_allowed?(%Notification{type: :message} = notif, user_settings, conv_settings) do
+    case effective_mentions_only(user_settings, conv_settings) do
+      true -> mentioned?(notif)
+      _ -> true
+    end
+  end
+
+  defp mention_allowed?(_notif, _us, _cs), do: true
+
+  defp effective_mentions_only(_us, %ConversationSettings{mentions_only: v}) when is_boolean(v),
+    do: v
+
+  defp effective_mentions_only(%UserSettings{mentions_only: v}, _cs) when is_boolean(v), do: v
+  defp effective_mentions_only(_us, _cs), do: false
+
+  defp mentioned?(%Notification{metadata: %{"mentioned" => true}}), do: true
+  defp mentioned?(%Notification{metadata: %{mentioned: true}}), do: true
+  defp mentioned?(_), do: false
 
   defp normalize_attrs(attrs, key, value) when is_map(attrs) do
     attrs

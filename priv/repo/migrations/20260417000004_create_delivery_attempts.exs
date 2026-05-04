@@ -4,7 +4,7 @@ defmodule WhisprNotifications.Repo.Migrations.CreateDeliveryAttempts do
   def change do
     create table(:delivery_attempts, primary_key: false) do
       add :id, :binary_id, primary_key: true
-      add :notification_id, :binary_id, null: false
+      add :notification_id, :string, null: false
       add :device_id, :string
       add :status, :string, null: false
       add :error_code, :string

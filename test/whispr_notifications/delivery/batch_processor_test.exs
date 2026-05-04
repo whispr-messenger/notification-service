@@ -1,5 +1,5 @@
 defmodule WhisprNotifications.Delivery.BatchProcessorTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Delivery.BatchProcessor
   alias WhisprNotifications.Test.NotificationFixtures
@@ -10,6 +10,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
     original_spy_pid = Application.get_env(:whispr_notification, :apns_spy_pid)
     original_spy_resp = Application.get_env(:whispr_notification, :apns_spy_response)
     original_fcm_pid = Application.get_env(:whispr_notification, :fcm_spy_pid)
+    original_fcm_resp = Application.get_env(:whispr_notification, :fcm_spy_response)
 
     Application.put_env(
       :whispr_notification,
@@ -26,6 +27,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
     Application.put_env(:whispr_notification, :apns_spy_pid, self())
     Application.put_env(:whispr_notification, :fcm_spy_pid, self())
     Application.delete_env(:whispr_notification, :apns_spy_response)
+    Application.delete_env(:whispr_notification, :fcm_spy_response)
 
     on_exit(fn ->
       restore(:apns_client_mod, original_apns)
@@ -33,6 +35,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
       restore(:apns_spy_pid, original_spy_pid)
       restore(:apns_spy_response, original_spy_resp)
       restore(:fcm_spy_pid, original_fcm_pid)
+      restore(:fcm_spy_response, original_fcm_resp)
     end)
 
     :ok
@@ -103,6 +106,97 @@ defmodule WhisprNotifications.Delivery.BatchProcessorTest do
       cache = NotificationFixtures.build_device_cache()
 
       assert :ok == BatchProcessor.deliver(notif, cache)
+    end
+  end
+
+  describe "deliver/2 FCM invalid token handling (WHISPR-1159)" do
+    alias WhisprNotifications.Devices
+    alias WhisprNotifications.Devices.Device
+
+    test "soft-deletes the device when FcmClient returns {:error, :token_invalid}" do
+      Application.put_env(:whispr_notification, :fcm_spy_response, {:error, :token_invalid})
+
+      {:ok, device_row} =
+        Devices.upsert(%{
+          user_id: "user-fcm-invalid",
+          device_id: "pixel-bad",
+          fcm_token: "bad-token",
+          platform: "android"
+        })
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device(%{token: "bad-token"})
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      assert :ok == BatchProcessor.deliver(notif, cache)
+
+      reloaded = Repo.get!(Device, device_row.id)
+      assert reloaded.deleted_at != nil
+      assert reloaded.last_error == "INVALID"
+
+      # only one attempt — :token_invalid short-circuits the retry path
+      assert_receive {:fcm_send, _, _}
+      refute_receive {:fcm_send, _, _}
+    end
+
+    test "does nothing (but stays :ok) when the token is not in the devices table" do
+      Application.put_env(:whispr_notification, :fcm_spy_response, {:error, :token_invalid})
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device(%{token: "unknown-token"})
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      assert :ok == BatchProcessor.deliver(notif, cache)
+      assert Repo.aggregate(Device, :count) == 0
+    end
+
+    test "does not retry when FCM is not configured" do
+      Application.put_env(:whispr_notification, :fcm_spy_response, {:error, :not_configured})
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      BatchProcessor.deliver(notif, cache)
+
+      assert_receive {:fcm_send, _, _}
+      refute_receive {:fcm_send, _, _}
+    end
+  end
+
+  describe "deliver/2 FCM error behaviour" do
+    test "returns :ok even when FCM sends fail" do
+      Application.put_env(
+        :whispr_notification,
+        :fcm_spy_response,
+        {:error, :service_unavailable}
+      )
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      assert :ok == BatchProcessor.deliver(notif, cache)
+    end
+
+    test "retries on FCM failure" do
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      Application.put_env(:whispr_notification, :fcm_spy_response, fn ->
+        call = Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+        if call == 0, do: {:error, :service_unavailable}, else: :ok
+      end)
+
+      notif = NotificationFixtures.build_notification()
+      android = NotificationFixtures.build_android_device()
+      cache = NotificationFixtures.build_device_cache(devices: [android])
+
+      BatchProcessor.deliver(notif, cache)
+
+      assert_receive {:fcm_send, _, _}
+      assert_receive {:fcm_send, _, _}
+
+      Agent.stop(counter)
     end
   end
 

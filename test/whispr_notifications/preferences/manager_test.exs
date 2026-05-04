@@ -1,16 +1,19 @@
 defmodule WhisprNotifications.Preferences.ManagerTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: true
 
-  alias WhisprNotifications.Preferences.{Manager, UserSettings, ConversationSettings}
+  alias WhisprNotifications.Preferences.{ConversationSettings, Manager, UserSettings}
   alias WhisprNotifications.Test.NotificationFixtures
 
+  defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
+
   describe "get_user_settings/1" do
-    test "returns default UserSettings struct" do
-      assert {:ok, %UserSettings{user_id: "u-1"}} = Manager.get_user_settings("u-1")
+    test "returns default UserSettings struct when no row exists" do
+      uid = unique_id("u")
+      assert {:ok, %UserSettings{user_id: ^uid}} = Manager.get_user_settings(uid)
     end
 
     test "returns a persisted UserSettings when one exists" do
-      uid = "pref-mgr-user-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-user")
       {:ok, _} = Manager.update_user_settings(uid, %{"language" => "fr"})
 
       assert {:ok, %UserSettings{user_id: ^uid, language: "fr"}} = Manager.get_user_settings(uid)
@@ -19,18 +22,23 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
 
   describe "get_conversation_settings/2" do
     test "returns default ConversationSettings struct" do
-      assert {:ok, %ConversationSettings{user_id: "u-1", conversation_id: "c-2"}} =
-               Manager.get_conversation_settings("u-1", "c-2")
+      uid = unique_id("u")
+      cid = unique_id("c")
+
+      assert {:ok, %ConversationSettings{user_id: ^uid, conversation_id: ^cid}} =
+               Manager.get_conversation_settings(uid, cid)
     end
 
     test "returns an empty struct when conversation_id is nil" do
-      assert {:ok, %ConversationSettings{user_id: "u-nil", conversation_id: nil}} =
-               Manager.get_conversation_settings("u-nil", nil)
+      uid = unique_id("u-nil")
+
+      assert {:ok, %ConversationSettings{user_id: ^uid, conversation_id: nil}} =
+               Manager.get_conversation_settings(uid, nil)
     end
 
     test "returns the persisted row when set_muted has stored one" do
-      uid = "pref-mgr-u-" <> Integer.to_string(System.unique_integer([:positive]))
-      cid = "pref-mgr-c-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-u")
+      cid = unique_id("pref-mgr-c")
 
       {:ok, _} = Manager.set_muted(uid, cid, true)
 
@@ -41,14 +49,14 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
 
   describe "update_user_settings/2" do
     test "inserts the row when no settings exist yet" do
-      uid = "pref-mgr-insert-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-insert")
 
       assert {:ok, %UserSettings{user_id: ^uid, language: "fr"}} =
                Manager.update_user_settings(uid, %{"language" => "fr"})
     end
 
     test "updates the existing row" do
-      uid = "pref-mgr-update-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-update")
       {:ok, _} = Manager.update_user_settings(uid, %{"language" => "fr"})
 
       assert {:ok, %UserSettings{language: "en", message_push_enabled: false}} =
@@ -59,24 +67,31 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
     end
 
     test "accepts atom-keyed attrs" do
-      uid = "pref-mgr-atom-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-atom")
 
       assert {:ok, %UserSettings{language: "es"}} =
                Manager.update_user_settings(uid, %{language: "es"})
+    end
+
+    test "returns a changeset error on invalid attrs" do
+      uid = unique_id("pref-mgr-invalid")
+
+      assert {:error, %Ecto.Changeset{valid?: false}} =
+               Manager.update_user_settings(uid, %{"quiet_hours_start" => "not-a-time"})
     end
   end
 
   describe "set_muted/4" do
     test "creates a conversation_settings row with muted=true" do
-      uid = "pref-mgr-mute-" <> Integer.to_string(System.unique_integer([:positive]))
-      cid = "pref-mgr-mute-c-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-mute")
+      cid = unique_id("pref-mgr-mute-c")
 
       assert {:ok, %ConversationSettings{muted: true}} = Manager.set_muted(uid, cid, true)
     end
 
     test "respects mute_until option when provided" do
-      uid = "pref-mgr-until-" <> Integer.to_string(System.unique_integer([:positive]))
-      cid = "pref-mgr-until-c-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-until")
+      cid = unique_id("pref-mgr-until-c")
       until = ~U[2099-01-01 00:00:00Z]
 
       assert {:ok, %ConversationSettings{muted: true, mute_until: ^until}} =
@@ -84,8 +99,8 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
     end
 
     test "clears mute_until when unmuting" do
-      uid = "pref-mgr-clear-" <> Integer.to_string(System.unique_integer([:positive]))
-      cid = "pref-mgr-clear-c-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-clear")
+      cid = unique_id("pref-mgr-clear-c")
 
       {:ok, _} = Manager.set_muted(uid, cid, true, mute_until: ~U[2099-01-01 00:00:00Z])
 
@@ -96,18 +111,18 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
 
   describe "allowed_for_notification?/2" do
     test "returns true for a notification with default settings" do
-      notif = NotificationFixtures.build_notification()
+      notif = NotificationFixtures.build_notification(%{user_id: unique_id("u")})
       assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
     end
 
     test "uses DateTime.utc_now/0 when no now is passed" do
-      notif = NotificationFixtures.build_notification()
+      notif = NotificationFixtures.build_notification(%{user_id: unique_id("u")})
       assert Manager.allowed_for_notification?(notif)
     end
 
     test "returns false when the conversation is muted indefinitely" do
-      uid = "pref-mgr-allow-" <> Integer.to_string(System.unique_integer([:positive]))
-      cid = "pref-mgr-allow-c-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-allow")
+      cid = unique_id("pref-mgr-allow-c")
 
       {:ok, _} = Manager.set_muted(uid, cid, true)
 
@@ -117,9 +132,21 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
       refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
     end
 
-    test "returns true when conversation_id is nil even if other conv is muted" do
-      uid = "pref-mgr-nil-" <> Integer.to_string(System.unique_integer([:positive]))
-      other_cid = "other-c-" <> Integer.to_string(System.unique_integer([:positive]))
+    test "returns true when mute_until is in the past" do
+      uid = unique_id("pref-mgr-past")
+      cid = unique_id("pref-mgr-past-c")
+
+      {:ok, _} = Manager.set_muted(uid, cid, true, mute_until: ~U[2020-01-01 00:00:00Z])
+
+      notif =
+        NotificationFixtures.build_notification(%{user_id: uid, conversation_id: cid})
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "returns true when conversation_id is nil even if another conv is muted" do
+      uid = unique_id("pref-mgr-nil")
+      other_cid = unique_id("other-c")
       {:ok, _} = Manager.set_muted(uid, other_cid, true)
 
       notif = NotificationFixtures.build_notification(%{user_id: uid, conversation_id: nil})
@@ -128,7 +155,7 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
     end
 
     test "returns false when the user is in quiet hours" do
-      uid = "pref-mgr-quiet-" <> Integer.to_string(System.unique_integer([:positive]))
+      uid = unique_id("pref-mgr-quiet")
 
       {:ok, _} =
         Manager.update_user_settings(uid, %{
@@ -139,6 +166,73 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
       notif = NotificationFixtures.build_notification(%{user_id: uid, conversation_id: nil})
 
       refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 23:00:00Z])
+    end
+
+    test "blocks a non-mention message when user mentions_only is true" do
+      uid = unique_id("pref-mgr-mentions")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          metadata: %{"mentioned" => false}
+        })
+
+      refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "lets a mention through when user mentions_only is true" do
+      uid = unique_id("pref-mgr-mentions-ok")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          metadata: %{"mentioned" => true}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "conversation mentions_only=false overrides user mentions_only=true" do
+      uid = unique_id("pref-mgr-conv-override")
+      cid = unique_id("pref-mgr-conv-override-c")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      {:ok, _} =
+        %ConversationSettings{}
+        |> ConversationSettings.changeset(%{
+          "user_id" => uid,
+          "conversation_id" => cid,
+          "mentions_only" => false
+        })
+        |> WhisprNotifications.Repo.insert_or_update()
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: cid,
+          metadata: %{"mentioned" => false}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "non-:message notifs ignore mentions_only" do
+      uid = unique_id("pref-mgr-system")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          type: :system,
+          metadata: %{"mentioned" => false}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
     end
   end
 end

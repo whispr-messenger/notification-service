@@ -3,9 +3,9 @@ defmodule WhisprNotifications.Events.GroupEvents do
   Événements liés aux groupes (ajout, changement de rôle, etc).
   """
 
-  alias WhisprNotifications.Notifications.{Notification, Filter, History}
-  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.CacheManager
+  alias WhisprNotifications.Notifications.{Filter, History, Notification}
 
   @type group_event :: %{
           user_id: String.t(),
@@ -32,7 +32,7 @@ defmodule WhisprNotifications.Events.GroupEvents do
         context: %{
           "group_id" => event.group_id,
           "actor_id" => event.actor_id,
-          "action" => Atom.to_string(event.action)
+          "action" => to_string(event.action)
         }
       })
 
