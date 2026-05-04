@@ -1,7 +1,7 @@
 defmodule WhisprNotifications.Auth.JwksCacheExtraTest do
   use ExUnit.Case, async: false
 
-  alias WhisprNotifications.Auth.JwksCache
+  alias WhisprNotifications.Auth.{Jwks, JwksCache}
   alias WhisprNotifications.Test.ES256JwtFixtures
 
   # Clear any :jwt config left by other tests so options-only paths are exercised.
@@ -42,7 +42,7 @@ defmodule WhisprNotifications.Auth.JwksCacheExtraTest do
     start_supervised!({JwksCache, [name: server, allow_empty: true]})
 
     inline = Jason.encode!(%{"keys" => [ES256JwtFixtures.primary_jwks_public_entry()]})
-    {:ok, keys} = WhisprNotifications.Auth.Jwks.keys_from_json(inline)
+    {:ok, keys} = Jwks.keys_from_json(inline)
 
     assert :ok = GenServer.call(server, {:replace_keys, keys})
     assert {:ok, %JOSE.JWK{}} = JwksCache.get_key(ES256JwtFixtures.primary_kid(), server)

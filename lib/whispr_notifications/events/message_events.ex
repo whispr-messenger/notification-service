@@ -4,9 +4,9 @@ defmodule WhisprNotifications.Events.MessageEvents do
   Convertit un évènement en Notification et le déclenche.
   """
 
-  alias WhisprNotifications.Notifications.{Notification, Filter, History}
-  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.CacheManager
+  alias WhisprNotifications.Notifications.{Filter, History, Notification}
 
   @type message_event :: %{
           user_id: String.t(),
@@ -20,7 +20,7 @@ defmodule WhisprNotifications.Events.MessageEvents do
   def handle_new_message(event) do
     notif =
       Notification.new(%{
-        user_id: event.conversation_id,
+        user_id: event.user_id,
         conversation_id: event.conversation_id,
         type: :message,
         title: "Nouveau message",

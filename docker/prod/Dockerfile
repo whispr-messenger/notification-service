@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 # STAGE 1: Build
 # -----------------------------------------------------------------------------
-FROM elixir:1.19-alpine AS builder
+FROM hexpm/elixir:1.18.4-erlang-27.3.4-alpine-3.21.3 AS builder
 
 RUN apk add --no-cache \
     build-base \
@@ -40,7 +40,7 @@ RUN mix release
 # -----------------------------------------------------------------------------
 # STAGE 2: Runtime
 # -----------------------------------------------------------------------------
-FROM elixir:1.19-alpine AS runtime
+FROM hexpm/elixir:1.18.4-erlang-27.3.4-alpine-3.21.3 AS runtime
 
 RUN apk add --no-cache \
     libstdc++ \

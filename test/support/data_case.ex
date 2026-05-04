@@ -12,6 +12,9 @@ defmodule WhisprNotifications.DataCase do
 
   use ExUnit.CaseTemplate
 
+  alias Ecto.Adapters.SQL.Sandbox
+  alias WhisprNotifications.Repo
+
   using do
     quote do
       alias WhisprNotifications.Repo
@@ -24,7 +27,7 @@ defmodule WhisprNotifications.DataCase do
   end
 
   setup tags do
-    WhisprNotifications.DataCase.setup_sandbox(tags)
+    setup_sandbox(tags)
     :ok
   end
 
@@ -32,7 +35,7 @@ defmodule WhisprNotifications.DataCase do
   Sets up the sandbox based on the test tags.
   """
   def setup_sandbox(tags) do
-    pid = Ecto.Adapters.SQL.Sandbox.start_owner!(WhisprNotifications.Repo, shared: not tags[:async])
-    on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)
+    pid = Sandbox.start_owner!(Repo, shared: not tags[:async])
+    on_exit(fn -> Sandbox.stop_owner(pid) end)
   end
 end

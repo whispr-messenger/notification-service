@@ -14,21 +14,9 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
     port: 443,
     scheme: "https"
   ],
-  secret_key_base: "placeholder-overridden-by-runtime-exs",
+  secret_key_base: System.get_env("SECRET_KEY_BASE"),
   check_origin: false,
   server: true
-
-# ======================================================================
-# Redis production (pour cache devices / rate limiting, etc.)
-# ======================================================================
-
-config :whispr_notification, :redis,
-  host: System.get_env("REDIS_HOST", "localhost"),
-  port: String.to_integer(System.get_env("REDIS_PORT", "6379")),
-  database: String.to_integer(System.get_env("REDIS_DB", "0")),
-  password: System.get_env("REDIS_PASSWORD"),
-  timeout: 15_000,
-  ssl: System.get_env("REDIS_SSL", "false") == "true"
 
 # ======================================================================
 # gRPC port production
@@ -43,7 +31,15 @@ config :whispr_notification,
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :user_id, :conversation_id, :notification_id],
+  metadata: [
+    :request_id,
+    :user_id,
+    :conversation_id,
+    :notification_id,
+    :report_id,
+    :appeal_id,
+    :reported_user_id
+  ],
   level: :info
 
 config :logger,

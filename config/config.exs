@@ -32,14 +32,6 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
   server: true
 
 # ======================================================================
-# Redis / cache devices (si utilisé)
-# ======================================================================
-
-config :whispr_notification, :redis,
-  host: System.get_env("REDIS_HOST", "localhost"),
-  port: parse_port.(System.get_env("REDIS_PORT", "6379")),
-  database: String.to_integer(System.get_env("REDIS_DB", "0")),
-  password: System.get_env("REDIS_PASSWORD")
 
 # ======================================================================
 # gRPC
@@ -82,21 +74,17 @@ config :whispr_notification, :services,
   }
 
 # ======================================================================
-# FCM / APNS (Pigeon / Fcmex)
+# FCM / APNS
 # ======================================================================
-
-config :fcmex,
-  project_id: System.get_env("FCM_PROJECT_ID"),
-  json_keyfile: System.get_env("FCM_JSON_KEYFILE")
-
-config :pigeon, :apns,
-  apns_default: %{
-    key: System.get_env("APNS_KEY_PATH"),
-    key_identifier: System.get_env("APNS_KEY_ID"),
-    team_id: System.get_env("APNS_TEAM_ID"),
-    mode: String.to_atom(System.get_env("APNS_MODE", "dev")),
-    ping_interval: 600_000
-  }
+#
+# FCM HTTP v1 — configured via `config :whispr_notification, :fcm` in
+# runtime.exs (OAuth via Goth). The project_id/service-account JSON
+# default to FCM_PROJECT_ID / FCM_JSON_KEYFILE env vars.
+#
+# APNS HTTP/2 — configured via `config :whispr_notification, :apns`
+# (and the per-dispatcher `WhisprNotifications.Delivery.ApnsDispatcher`
+# block) in runtime.exs from APNS_KEY_PATH / APNS_KEY_ID / APNS_TEAM_ID
+# / APNS_MODE.
 
 # ======================================================================
 # Logger
@@ -104,7 +92,15 @@ config :pigeon, :apns,
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id, :user_id, :conversation_id, :notification_id]
+  metadata: [
+    :request_id,
+    :user_id,
+    :conversation_id,
+    :notification_id,
+    :report_id,
+    :appeal_id,
+    :reported_user_id
+  ]
 
 # ======================================================================
 # Phoenix / JSON

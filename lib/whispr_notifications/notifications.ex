@@ -3,8 +3,8 @@ defmodule WhisprNotifications.Notifications do
   Création et envoi des notifications utilisateur.
   """
 
-  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Delivery.BatchProcessor
+  alias WhisprNotifications.Devices.CacheManager
   alias WhisprNotifications.Notifications.{History, Notification}
 
   @spec create(map()) :: {:ok, Notification.t()} | {:error, :validation, [String.t()]}
@@ -24,19 +24,23 @@ defmodule WhisprNotifications.Notifications do
   end
 
   defp normalize_params(params) do
-    ctx = params["context"] || params[:context] || %{}
-    ctx = if is_map(ctx), do: stringify_context(ctx), else: %{}
-
     %{
-      user_id: params["user_id"] || params[:user_id],
-      type: parse_type(params["type"] || params[:type]),
-      title: params["title"] || params[:title],
-      body: params["body"] || params[:body],
-      context: ctx,
-      conversation_id: params["conversation_id"] || params[:conversation_id],
-      metadata: params["metadata"] || params[:metadata] || %{}
+      user_id: pick(params, :user_id),
+      type: parse_type(pick(params, :type)),
+      title: pick(params, :title),
+      body: pick(params, :body),
+      context: normalize_context(pick(params, :context)),
+      conversation_id: pick(params, :conversation_id),
+      metadata: pick(params, :metadata) || %{}
     }
   end
+
+  defp pick(params, key) when is_atom(key) do
+    Map.get(params, Atom.to_string(key)) || Map.get(params, key)
+  end
+
+  defp normalize_context(ctx) when is_map(ctx), do: stringify_context(ctx)
+  defp normalize_context(_), do: %{}
 
   defp stringify_context(map) do
     Map.new(map, fn

@@ -1,170 +1,234 @@
 defmodule WhisprNotificationsWeb.MuteControllerTest do
-  use ExUnit.Case, async: false
+  use WhisprNotifications.DataCase, async: true
+  import Plug.Conn, only: [assign: 3]
   import Plug.Test
 
-  alias WhisprNotifications.Test.AuthHelpers
-  alias WhisprNotificationsWeb.{MuteController, Router}
+  alias WhisprNotificationsWeb.MuteController
 
-  setup do
-    AuthHelpers.setup_jwt()
+  defp unique_id(prefix), do: "#{prefix}-#{System.unique_integer([:positive])}"
+
+  # /mute routes sit behind :jwt_authenticated (WHISPR-1028). Unit tests
+  # drive the controller directly; router-level auth wiring is covered by
+  # jwt_guard_integration_test.
+  #
+  # Authorization contract (WHISPR security audit §8):
+  #   - body user_id == jwt_sub → 204
+  #   - body user_id absent (or "") → 204, falls back to jwt_sub
+  #   - body user_id != jwt_sub → 403
+  #   - jwt_sub missing (plug bypassed) → 403
+
+  defp build_conn(verb, conv_id, jwt_sub) do
+    verb
+    |> conn("/api/conversations/#{conv_id}/mute")
+    |> assign(:jwt_sub, jwt_sub)
   end
 
-  test "POST /api/conversations/:id/mute returns 204 when user_id is in body", %{token: token} do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-1/mute", %{"user_id" => "mute-ctrl-u-1"})
-      |> AuthHelpers.put_bearer(token)
-      |> Router.call([])
+  describe "mute/2 — authorization" do
+    test "returns 204 when body user_id matches jwt_sub" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
 
-    assert conn.status == 204
+      conn =
+        :post
+        |> build_conn(conv_id, user_id)
+        |> MuteController.mute(%{"conversation_id" => conv_id, "user_id" => user_id})
+
+      assert conn.status == 204
+    end
+
+    test "falls back to jwt_sub when body user_id is absent" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
+
+      conn =
+        :post
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.mute(%{"conversation_id" => conv_id})
+
+      assert conn.status == 204
+    end
+
+    test "treats empty-string user_id like missing and falls back to jwt_sub" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
+
+      conn =
+        :post
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.mute(%{"conversation_id" => conv_id, "user_id" => ""})
+
+      assert conn.status == 204
+    end
+
+    test "returns 403 when body user_id differs from jwt_sub" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
+      victim = unique_id("victim")
+
+      conn =
+        :post
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.mute(%{"conversation_id" => conv_id, "user_id" => victim})
+
+      assert conn.status == 403
+      assert Jason.decode!(conn.resp_body) == %{"error" => "forbidden"}
+    end
+
+    test "returns 403 when jwt_sub is missing even if body user_id is present" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
+
+      conn =
+        :post
+        |> conn("/api/conversations/#{conv_id}/mute")
+        |> MuteController.mute(%{"conversation_id" => conv_id, "user_id" => user_id})
+
+      assert conn.status == 403
+      assert Jason.decode!(conn.resp_body) == %{"error" => "forbidden"}
+    end
   end
 
-  test "MuteController.mute/2 returns 204 directly" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-2/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-2",
-        "user_id" => "mute-ctrl-u-2"
-      })
+  describe "mute/2 — mute_until and changeset errors" do
+    test "returns 400 when mute_until is not an ISO8601 string" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
 
-    assert conn.status == 204
+      conn =
+        :post
+        |> build_conn(conv_id, user_id)
+        |> MuteController.mute(%{
+          "conversation_id" => conv_id,
+          "user_id" => user_id,
+          "mute_until" => "not-a-date"
+        })
+
+      assert conn.status == 400
+      assert %{"errors" => %{"mute_until" => ["must be ISO8601"]}} = Jason.decode!(conn.resp_body)
+    end
+
+    test "returns 400 when mute_until is a non-string value" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
+
+      conn =
+        :post
+        |> build_conn(conv_id, user_id)
+        |> MuteController.mute(%{
+          "conversation_id" => conv_id,
+          "user_id" => user_id,
+          "mute_until" => 12_345
+        })
+
+      assert conn.status == 400
+      assert %{"errors" => %{"mute_until" => ["must be ISO8601"]}} = Jason.decode!(conn.resp_body)
+    end
+
+    test "accepts a valid ISO8601 mute_until and returns 204" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
+
+      conn =
+        :post
+        |> build_conn(conv_id, user_id)
+        |> MuteController.mute(%{
+          "conversation_id" => conv_id,
+          "user_id" => user_id,
+          "mute_until" => "2030-01-01T00:00:00Z"
+        })
+
+      assert conn.status == 204
+    end
+
+    test "returns 422 when Manager returns a changeset error (blank conversation_id)" do
+      user_id = unique_id("u")
+
+      conn =
+        :post
+        |> conn("/api/conversations//mute")
+        |> assign(:jwt_sub, user_id)
+        |> MuteController.mute(%{"conversation_id" => "", "user_id" => user_id})
+
+      assert conn.status == 422
+      decoded = Jason.decode!(conn.resp_body)
+      assert Map.has_key?(decoded["errors"], "conversation_id")
+    end
   end
 
-  test "MuteController.unmute/2 returns 204 directly" do
-    conn =
-      :delete
-      |> conn("/api/conversations/mute-ctrl-conv-3/mute")
-      |> MuteController.unmute(%{
-        "conversation_id" => "mute-ctrl-conv-3",
-        "user_id" => "mute-ctrl-u-3"
-      })
+  describe "unmute/2 — authorization" do
+    test "returns 204 when body user_id matches jwt_sub" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
 
-    assert conn.status == 204
-  end
+      conn =
+        :delete
+        |> build_conn(conv_id, user_id)
+        |> MuteController.unmute(%{"conversation_id" => conv_id, "user_id" => user_id})
 
-  test "MuteController.mute/2 accepts a valid ISO8601 mute_until" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-4/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-4",
-        "user_id" => "mute-ctrl-u-4",
-        "mute_until" => "2099-12-31T23:59:59Z"
-      })
+      assert conn.status == 204
+    end
 
-    assert conn.status == 204
-  end
+    test "falls back to jwt_sub when body user_id is absent" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
 
-  test "MuteController.mute/2 returns 400 when user_id cannot be resolved" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-5/mute")
-      |> MuteController.mute(%{"conversation_id" => "mute-ctrl-conv-5"})
+      conn =
+        :delete
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.unmute(%{"conversation_id" => conv_id})
 
-    assert conn.status == 400
-    assert Jason.decode!(conn.resp_body) == %{"errors" => %{"user_id" => ["is required"]}}
-  end
+      assert conn.status == 204
+    end
 
-  test "MuteController.mute/2 returns 400 when user_id is an empty string" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-6/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-6",
-        "user_id" => ""
-      })
+    test "treats empty-string user_id like missing and falls back to jwt_sub" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
 
-    assert conn.status == 400
-  end
+      conn =
+        :delete
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.unmute(%{"conversation_id" => conv_id, "user_id" => ""})
 
-  test "MuteController.mute/2 returns 400 on invalid ISO8601 mute_until" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-7/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-7",
-        "user_id" => "mute-ctrl-u-7",
-        "mute_until" => "not-a-date"
-      })
+      assert conn.status == 204
+    end
 
-    assert conn.status == 400
-    assert Jason.decode!(conn.resp_body) == %{"errors" => %{"mute_until" => ["must be ISO8601"]}}
-  end
+    test "returns 403 when body user_id differs from jwt_sub" do
+      conv_id = unique_id("conv")
+      jwt_user = unique_id("jwt-sub")
+      victim = unique_id("victim")
 
-  test "MuteController.mute/2 returns 400 when mute_until is not a string" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-8/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-8",
-        "user_id" => "mute-ctrl-u-8",
-        "mute_until" => 12_345
-      })
+      conn =
+        :delete
+        |> build_conn(conv_id, jwt_user)
+        |> MuteController.unmute(%{"conversation_id" => conv_id, "user_id" => victim})
 
-    assert conn.status == 400
-  end
+      assert conn.status == 403
+      assert Jason.decode!(conn.resp_body) == %{"error" => "forbidden"}
+    end
 
-  test "MuteController.unmute/2 returns 400 when user_id is missing" do
-    conn =
-      :delete
-      |> conn("/api/conversations/mute-ctrl-conv-9/mute")
-      |> MuteController.unmute(%{"conversation_id" => "mute-ctrl-conv-9"})
+    test "returns 403 when jwt_sub is missing even if body user_id is present" do
+      conv_id = unique_id("conv")
+      user_id = unique_id("u")
 
-    assert conn.status == 400
-    assert Jason.decode!(conn.resp_body) == %{"errors" => %{"user_id" => ["is required"]}}
-  end
+      conn =
+        :delete
+        |> conn("/api/conversations/#{conv_id}/mute")
+        |> MuteController.unmute(%{"conversation_id" => conv_id, "user_id" => user_id})
 
-  test "MuteController.mute/2 treats a blank mute_until as none (204)" do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-10/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "mute-ctrl-conv-10",
-        "user_id" => "mute-ctrl-u-10",
-        "mute_until" => ""
-      })
+      assert conn.status == 403
+    end
 
-    assert conn.status == 204
-  end
+    test "returns 422 when Manager returns a changeset error (blank conversation_id)" do
+      user_id = unique_id("u")
 
-  test "MuteController.mute/2 returns 422 when Manager returns a changeset error" do
-    conn =
-      :post
-      |> conn("/api/conversations/%20/mute")
-      |> MuteController.mute(%{
-        "conversation_id" => "",
-        "user_id" => "mute-ctrl-u-11"
-      })
+      conn =
+        :delete
+        |> conn("/api/conversations//mute")
+        |> assign(:jwt_sub, user_id)
+        |> MuteController.unmute(%{"conversation_id" => "", "user_id" => user_id})
 
-    assert conn.status == 422
-    decoded = Jason.decode!(conn.resp_body)
-    assert Map.has_key?(decoded["errors"], "conversation_id")
-  end
-
-  test "MuteController.unmute/2 returns 422 when Manager returns a changeset error" do
-    conn =
-      :delete
-      |> conn("/api/conversations/%20/mute")
-      |> MuteController.unmute(%{
-        "conversation_id" => "",
-        "user_id" => "mute-ctrl-u-12"
-      })
-
-    assert conn.status == 422
-    decoded = Jason.decode!(conn.resp_body)
-    assert Map.has_key?(decoded["errors"], "conversation_id")
-  end
-
-  test "POST /api/conversations/:id/mute falls back to jwt_sub when no user_id in body", %{
-    token: token
-  } do
-    conn =
-      :post
-      |> conn("/api/conversations/mute-ctrl-conv-fallback/mute")
-      |> AuthHelpers.put_bearer(token)
-      |> Router.call([])
-
-    assert conn.status == 204
+      assert conn.status == 422
+      decoded = Jason.decode!(conn.resp_body)
+      assert Map.has_key?(decoded["errors"], "conversation_id")
+    end
   end
 end

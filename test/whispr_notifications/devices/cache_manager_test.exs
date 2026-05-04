@@ -1,5 +1,8 @@
 defmodule WhisprNotifications.Devices.CacheManagerTest do
-  use ExUnit.Case, async: false
+  # Since WHISPR-1159 CacheManager reads the devices table via
+  # AuthClient, so we need a shared sandbox to let the long-lived
+  # GenServer see the test's transaction.
+  use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Devices.{CacheManager, DeviceCache}
 

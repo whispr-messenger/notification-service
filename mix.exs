@@ -5,7 +5,7 @@ defmodule WhisprNotification.MixProject do
     [
       app: :whispr_notification,
       version: "0.1.0",
-      elixir: "~> 1.19",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -52,7 +52,7 @@ defmodule WhisprNotification.MixProject do
       {:joken, "~> 2.6"},
       {:elixir_uuid, "~> 1.2"},
       {:pigeon, "~> 2.0"},
-      {:fcmex, "~> 0.6"},
+      {:goth, "~> 1.4"},
       {:telemetry, "~> 1.2"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

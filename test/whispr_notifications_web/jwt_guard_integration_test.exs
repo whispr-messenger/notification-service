@@ -24,8 +24,9 @@ defmodule WhisprNotificationsWeb.JwtGuardIntegrationTest do
       jwks_cache_server: :jwks_cache_integration_test
     )
 
-
-    start_supervised!({JwksCache, [name: :jwks_cache_integration_test, http_get_fun: http_get_fun]})
+    start_supervised!(
+      {JwksCache, [name: :jwks_cache_integration_test, http_get_fun: http_get_fun]}
+    )
 
     token = sign_es256_token(ES256JwtFixtures.primary_private_jwk(), kid)
     {:ok, token: token}
@@ -42,6 +43,52 @@ defmodule WhisprNotificationsWeb.JwtGuardIntegrationTest do
     body = Jason.decode!(conn.resp_body)
     assert body["status"] == "ok"
     assert body["sub"] == "user-123"
+  end
+
+  # WHISPR-1028: /settings and /mute must be behind :jwt_authenticated.
+  # Without a valid Bearer token the pipeline must halt with 401.
+
+  test "GET /api/settings/:id without auth returns 401" do
+    conn = :get |> conn("/api/settings/anybody") |> Router.call([])
+    assert conn.status == 401
+    assert Jason.decode!(conn.resp_body) == %{"error" => "unauthorized"}
+  end
+
+  test "PUT /api/settings/:id without auth returns 401" do
+    conn =
+      :put
+      |> conn("/api/settings/anybody", %{"message_push_enabled" => false})
+      |> Router.call([])
+
+    assert conn.status == 401
+  end
+
+  test "POST /api/conversations/:id/mute without auth returns 401" do
+    conn =
+      :post
+      |> conn("/api/conversations/conv-1/mute", %{"user_id" => "someone"})
+      |> Router.call([])
+
+    assert conn.status == 401
+  end
+
+  test "DELETE /api/conversations/:id/mute without auth returns 401" do
+    conn =
+      :delete
+      |> conn("/api/conversations/conv-1/mute", %{"user_id" => "someone"})
+      |> Router.call([])
+
+    assert conn.status == 401
+  end
+
+  test "GET /notification/api/settings/:id without auth returns 401" do
+    conn = :get |> conn("/notification/api/settings/anybody") |> Router.call([])
+    assert conn.status == 401
+  end
+
+  test "GET /api/v1/health stays public (200)" do
+    conn = :get |> conn("/api/v1/health") |> Router.call([])
+    assert conn.status == 200
   end
 
   defp sign_es256_token(private_jwk, kid) do
