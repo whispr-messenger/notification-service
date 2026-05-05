@@ -127,6 +127,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriberExtraTest do
 
     expectations = %{
       "voice" => "Message vocal",
+      "audio" => "Message vocal",
       "video" => "Vidéo",
       "file" => "Fichier",
       "location" => "Localisation"
