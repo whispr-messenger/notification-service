@@ -165,4 +165,66 @@ defmodule WhisprNotifications.Workers.MessagingSubscriberTest do
       assert Badges.get(@user_a) == 1
     end
   end
+
+  describe "process_message/2 message_deleted" do
+    test "broadcasts message_deleted WS event to every recipient" do
+      WhisprNotificationsWeb.Endpoint.subscribe("user:#{@user_a}")
+      WhisprNotificationsWeb.Endpoint.subscribe("user:#{@user_b}")
+
+      payload = %{
+        "conversation_id" => @conv_id,
+        "message_id" => @msg_id,
+        "target_user_ids" => [@user_a, @user_b]
+      }
+
+      assert :ok =
+               MessagingSubscriber.process_message(
+                 "whispr:messaging:message_deleted",
+                 payload
+               )
+
+      assert_receive %Phoenix.Socket.Broadcast{
+                       event: "message_deleted",
+                       payload: %{"message_id" => @msg_id, "conversation_id" => @conv_id}
+                     },
+                     500
+
+      assert_receive %Phoenix.Socket.Broadcast{
+                       event: "message_deleted",
+                       payload: %{"message_id" => @msg_id, "conversation_id" => @conv_id}
+                     },
+                     500
+    end
+
+    test "broadcasts to a single recipient via user_id when target_user_ids absent" do
+      WhisprNotificationsWeb.Endpoint.subscribe("user:#{@user_a}")
+
+      payload = %{
+        "conversation_id" => @conv_id,
+        "message_id" => @msg_id,
+        "user_id" => @user_a
+      }
+
+      assert :ok =
+               MessagingSubscriber.process_message(
+                 "whispr:messaging:message_deleted",
+                 payload
+               )
+
+      assert_receive %Phoenix.Socket.Broadcast{
+                       topic: "user:#{@user_a}",
+                       event: "message_deleted",
+                       payload: %{"message_id" => @msg_id, "conversation_id" => @conv_id}
+                     },
+                     500
+    end
+
+    test "is a no-op when recipient list is empty" do
+      assert :ok =
+               MessagingSubscriber.process_message("whispr:messaging:message_deleted", %{
+                 "conversation_id" => @conv_id,
+                 "message_id" => @msg_id
+               })
+    end
+  end
 end

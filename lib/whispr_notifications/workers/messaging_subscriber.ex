@@ -2,18 +2,21 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   @moduledoc """
   Redis pub/sub subscriber for messaging events driving badge counts.
 
-  - `whispr:messaging:new_message` → incr badge for every recipient
-  - `whispr:messaging:message_read` → decr badge for the reader
+  - `whispr:messaging:new_message`     → incr badge for every recipient
+  - `whispr:messaging:message_read`    → decr badge for the reader
+  - `whispr:messaging:message_deleted` → broadcast `message_deleted` WS event to every recipient
 
   Payload contract (best effort, fields may be absent):
 
       %{
         "user_id" => "uuid",            # target user (read events)
-        "target_user_ids" => [...],     # recipients (new_message fanout)
+        "target_user_ids" => [...],     # recipients (new_message / message_deleted fanout)
         "mentioned_user_ids" => [...],  # subset of recipients that were @-mentioned
                                         # (publisher must populate; body is E2EE so the
                                         # server cannot derive mentions itself)
-        "count" => 1                    # optional batch size
+        "count" => 1,                   # optional batch size
+        "message_id" => "uuid",         # deleted message id (message_deleted events)
+        "conversation_id" => "uuid"     # conversation (message_deleted events)
       }
   """
 
@@ -24,10 +27,12 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   alias WhisprNotifications.Delivery.BatchProcessor
   alias WhisprNotifications.Devices.AuthClient
   alias WhisprNotifications.Notifications.{Filter, History, Notification}
+  alias WhisprNotificationsWeb.Endpoint
 
   @channels [
     "whispr:messaging:new_message",
-    "whispr:messaging:message_read"
+    "whispr:messaging:message_read",
+    "whispr:messaging:message_deleted"
   ]
 
   def start_link(opts) do
@@ -131,6 +136,23 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
     end
   end
 
+  def process_message("whispr:messaging:message_deleted", payload) do
+    recipients = target_user_ids(payload)
+    message_id = Map.get(payload, "message_id")
+    conversation_id = Map.get(payload, "conversation_id")
+
+    data = %{
+      "message_id" => message_id,
+      "conversation_id" => conversation_id
+    }
+
+    Enum.each(recipients, fn user_id ->
+      Endpoint.broadcast("user:#{user_id}", "message_deleted", data)
+    end)
+
+    :ok
+  end
+
   def process_message(channel, _payload) do
     Logger.warning("[MessagingSubscriber] Unknown channel: #{channel}")
     :ok
@@ -204,6 +226,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
 
   defp body_for_type("photo"), do: "📷 Photo"
   defp body_for_type("voice"), do: "🎤 Message vocal"
+  defp body_for_type("audio"), do: "🎤 Message vocal"
   defp body_for_type("video"), do: "🎥 Vidéo"
   defp body_for_type("file"), do: "📎 Fichier"
   defp body_for_type("location"), do: "📍 Localisation"
