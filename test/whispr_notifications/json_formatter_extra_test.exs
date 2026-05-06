@@ -22,9 +22,7 @@ defmodule WhisprNotifications.JsonFormatterExtraTest do
 
   test "serialises tuples as JSON arrays" do
     output =
-      JsonFormatter.format(:info, "x", @ts,
-        coords: {1, 2, "three"}
-      )
+      JsonFormatter.format(:info, "x", @ts, coords: {1, 2, "three"})
 
     payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
 
@@ -33,9 +31,7 @@ defmodule WhisprNotifications.JsonFormatterExtraTest do
 
   test "stringifies non-atom non-binary metadata keys via inspect" do
     output =
-      JsonFormatter.format(:info, "x", @ts,
-        nested: %{42 => "answer", {:a, :b} => "tuple-key"}
-      )
+      JsonFormatter.format(:info, "x", @ts, nested: %{42 => "answer", {:a, :b} => "tuple-key"})
 
     payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
 

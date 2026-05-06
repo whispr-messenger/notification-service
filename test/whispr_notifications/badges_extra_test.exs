@@ -26,6 +26,7 @@ defmodule WhisprNotifications.BadgesExtraTest do
       })
 
     refute cs.valid?
+
     assert {"must be greater than or equal to %{number}", _} =
              Keyword.fetch!(cs.errors, :unread_count)
   end
