@@ -46,5 +46,59 @@ defmodule WhisprNotifications.Events.ContactEventsTest do
                  user_id: "11111111-1111-1111-8111-000000000003"
                })
     end
+
+    test "returns :ok when accepter_id is empty (guard mismatch)" do
+      assert :ok =
+               ContactEvents.handle_request_accepted(%{
+                 user_id: "11111111-1111-1111-8111-000000000004",
+                 accepter_id: ""
+               })
+    end
+  end
+
+  describe "context.request_id handling" do
+    # These tests exercise the maybe_put/3 nil and "" branches in
+    # ContactEvents (the request_id key is omitted from the context map
+    # rather than being inserted with an empty value).
+
+    test "omits request_id from context when missing on request_received" do
+      event = %{
+        user_id: "11111111-1111-1111-8111-000000000010",
+        requester_id: "22222222-2222-2222-8222-000000000010",
+        requester_display_name: "Charlie"
+      }
+
+      assert :ok = ContactEvents.handle_request_received(event)
+    end
+
+    test "omits request_id from context when empty on request_received" do
+      event = %{
+        user_id: "11111111-1111-1111-8111-000000000011",
+        requester_id: "22222222-2222-2222-8222-000000000011",
+        request_id: ""
+      }
+
+      assert :ok = ContactEvents.handle_request_received(event)
+    end
+
+    test "omits request_id from context when nil on request_accepted" do
+      event = %{
+        user_id: "11111111-1111-1111-8111-000000000012",
+        accepter_id: "22222222-2222-2222-8222-000000000012",
+        request_id: nil
+      }
+
+      assert :ok = ContactEvents.handle_request_accepted(event)
+    end
+
+    test "omits request_id from context when empty on request_accepted" do
+      event = %{
+        user_id: "11111111-1111-1111-8111-000000000013",
+        accepter_id: "22222222-2222-2222-8222-000000000013",
+        request_id: ""
+      }
+
+      assert :ok = ContactEvents.handle_request_accepted(event)
+    end
   end
 end
