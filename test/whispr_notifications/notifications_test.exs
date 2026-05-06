@@ -128,7 +128,7 @@ defmodule WhisprNotifications.NotificationsTest do
                  "body" => "b"
                })
 
-      assert "type doit être message, group ou system" in errs
+      assert "type doit être message, group, system ou contact" in errs
     end
 
     test "rejects missing type" do

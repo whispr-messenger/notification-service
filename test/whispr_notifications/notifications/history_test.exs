@@ -112,9 +112,7 @@ defmodule WhisprNotifications.Notifications.HistoryTest do
 
       for uid <- [user_a, user_b] do
         :ok =
-          History.save(
-            NotificationFixtures.build_notification(%{id: unique_id(), user_id: uid})
-          )
+          History.save(NotificationFixtures.build_notification(%{id: unique_id(), user_id: uid}))
       end
 
       assert [%Notification{user_id: ^user_a}] = History.list_for_user(user_a)
