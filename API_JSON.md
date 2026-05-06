@@ -263,7 +263,7 @@ Content-Type: application/json
 {
   "errors": [
     "user_id est requis",
-    "type doit être message, group ou system"
+    "type doit être message, group, system ou contact"
   ]
 }
 ```
