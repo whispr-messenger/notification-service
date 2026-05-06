@@ -37,8 +37,7 @@ defmodule WhisprNotifications.Workers.CallsSubscriberExtraTest do
 
     send(
       pid,
-      {:redix_pubsub, nil, nil, :message,
-       %{channel: "whispr:calls:initiated", payload: payload}}
+      {:redix_pubsub, nil, nil, :message, %{channel: "whispr:calls:initiated", payload: payload}}
     )
 
     Process.sleep(100)

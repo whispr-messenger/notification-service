@@ -106,9 +106,7 @@ defmodule WhisprNotifications.Auth.JwksCache do
           state.keys
 
         {:error, reason} ->
-          Logger.error(
-            "[JwksCache] Refresh failed: #{inspect(reason)} — keeping previous set"
-          )
+          Logger.error("[JwksCache] Refresh failed: #{inspect(reason)} — keeping previous set")
 
           state.keys
       end
