@@ -90,6 +90,7 @@ defmodule WhisprNotificationsWeb.DevicesController do
     Map.get(params, key) || Map.get(params, String.to_atom(key))
   end
 
+  # coveralls-ignore-next-line — Phoenix always hands us a map; defensive only
   defp params_get(_params, _key), do: nil
 
   defp ensure_string_keys(params) when is_map(params) do
@@ -99,6 +100,7 @@ defmodule WhisprNotificationsWeb.DevicesController do
     end)
   end
 
+  # coveralls-ignore-next-line — Phoenix always hands us a map; defensive only
   defp ensure_string_keys(_), do: %{}
 
   defp serialize(%Device{} = d) do
@@ -122,5 +124,6 @@ defmodule WhisprNotificationsWeb.DevicesController do
   end
 
   defp format_dt(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  # coveralls-ignore-next-line — schema field is :utc_datetime so non-DateTime is unreachable
   defp format_dt(_), do: nil
 end
