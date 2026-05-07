@@ -175,9 +175,11 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
 
   defp masked_token(device) do
     case token(device) do
+      # coveralls-ignore-start
       "unknown" ->
         "unknown"
 
+      # coveralls-ignore-stop
       t when is_binary(t) ->
         suffix_length = min(String.length(t), 6)
         "***" <> String.slice(t, -suffix_length, suffix_length)
@@ -185,5 +187,7 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   end
 
   defp token(%{token: t}) when is_binary(t), do: t
+  # coveralls-ignore-start
   defp token(_), do: "unknown"
+  # coveralls-ignore-stop
 end

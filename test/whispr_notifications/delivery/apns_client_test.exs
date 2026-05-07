@@ -65,6 +65,29 @@ defmodule WhisprNotifications.Delivery.ApnsClientTest do
       assert get_in(notif.payload, ["aps", "alert", "body"]) == "world"
       assert get_in(notif.payload, ["aps", "sound"]) == "default"
     end
+
+    test "stringifies the :data sub-map under the meta key when present" do
+      device = NotificationFixtures.build_ios_device()
+
+      notif =
+        ApnsClient.build_notification(device, %{
+          title: "Hi",
+          body: "world",
+          data: %{:conversation_id => "c-42", :unread => 3}
+        })
+
+      meta = get_in(notif.payload, ["meta"])
+      assert is_map(meta)
+      assert meta["conversation_id"] == "c-42"
+      assert meta["unread"] == "3"
+    end
+
+    test "passes an arbitrary map payload through unchanged (catch-all clause)" do
+      device = NotificationFixtures.build_ios_device()
+      payload = %{"foo" => "bar", "without_aps" => true}
+      notif = ApnsClient.build_notification(device, payload)
+      assert notif.payload == payload
+    end
   end
 
   describe "response_to_result/1" do
@@ -236,6 +259,20 @@ defmodule WhisprNotifications.Delivery.ApnsClientTest do
 
       device = NotificationFixtures.build_ios_device()
       assert {:error, :transient} = ApnsClient.send(device, %{"aps" => %{}})
+      Agent.stop(pid)
+    end
+
+    test "dispatcher exit is caught and returned as :not_configured" do
+      defmodule StubApnsDispatcherExit do
+        @moduledoc false
+        def push(_notif), do: exit(:dispatcher_dead)
+      end
+
+      {:ok, pid} = Agent.start_link(fn -> :ok end, name: StubApnsDispatcherExit)
+      Application.put_env(:whispr_notification, :apns_dispatcher, StubApnsDispatcherExit)
+
+      device = NotificationFixtures.build_ios_device()
+      assert {:error, :not_configured} = ApnsClient.send(device, %{"aps" => %{}})
       Agent.stop(pid)
     end
 
