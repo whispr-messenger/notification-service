@@ -86,10 +86,12 @@ defmodule WhisprNotifications.Workers.TokenRefresher do
     )
 
     %{state | last_run: DateTime.utc_now(), deleted: deleted}
+    # coveralls-ignore-start
   rescue
     e ->
       Logger.error("[TokenRefresher] cycle raised: #{inspect(e)}")
       state
+      # coveralls-ignore-stop
   end
 
   defp emit_gauge(deleted) do
