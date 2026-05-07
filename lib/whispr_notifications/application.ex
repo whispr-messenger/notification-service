@@ -44,7 +44,8 @@ defmodule WhisprNotifications.Application do
   end
 
   # Goth + Pigeon FCM dispatcher — needs FCM service account + project id.
-  defp fcm_children do
+  @doc false
+  def fcm_children do
     cfg = Application.get_env(:whispr_notification, :fcm, [])
 
     with true <- Keyword.get(cfg, :enabled, false),
@@ -61,7 +62,8 @@ defmodule WhisprNotifications.Application do
   end
 
   # Pigeon APNS dispatcher — needs the .p8 path + key id + team id.
-  defp apns_children do
+  @doc false
+  def apns_children do
     cfg = Application.get_env(:whispr_notification, :apns, [])
 
     if Keyword.get(cfg, :enabled, false) do
@@ -83,7 +85,8 @@ defmodule WhisprNotifications.Application do
   # starts with real keys; if the auth-service is unreachable, we fall back to
   # an empty key set so the app still starts (the plug will just return 401
   # until the cache is repopulated) instead of crash-looping the supervisor.
-  defp jwks_cache_opts do
+  @doc false
+  def jwks_cache_opts do
     jwt_cfg = Application.get_env(:whispr_notification, :jwt, [])
     url = Keyword.get(jwt_cfg, :jwks_url)
     refresh_ms = Keyword.get(jwt_cfg, :refresh_interval_ms, 3_600_000)
@@ -105,7 +108,8 @@ defmodule WhisprNotifications.Application do
     end
   end
 
-  defp prefetch_jwks(url) when is_binary(url) and url != "" do
+  @doc false
+  def prefetch_jwks(url) when is_binary(url) and url != "" do
     case Req.get(url, receive_timeout: 5_000, retry: :transient, max_retries: 1) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, if(is_binary(body), do: body, else: Jason.encode!(body))}
@@ -116,9 +120,13 @@ defmodule WhisprNotifications.Application do
       {:error, reason} ->
         {:error, reason}
     end
+
+    # coveralls-ignore-start
   rescue
-    e -> {:error, e}
+    e ->
+      {:error, e}
+      # coveralls-ignore-stop
   end
 
-  defp prefetch_jwks(_), do: :unconfigured
+  def prefetch_jwks(_), do: :unconfigured
 end
