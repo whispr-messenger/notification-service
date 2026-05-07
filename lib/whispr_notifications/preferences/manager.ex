@@ -93,6 +93,7 @@ defmodule WhisprNotifications.Preferences.Manager do
     user_settings =
       case get_user_settings(notif.user_id) do
         {:ok, us} -> us
+        # coveralls-ignore-next-line — defensive fallback, get_user_settings/1 currently always returns {:ok, _}
         _ -> nil
       end
 
@@ -102,6 +103,7 @@ defmodule WhisprNotifications.Preferences.Manager do
       else
         case get_conversation_settings(notif.user_id, notif.conversation_id) do
           {:ok, cs} -> cs
+          # coveralls-ignore-next-line — defensive fallback, get_conversation_settings/2 currently always returns {:ok, _}
           _ -> nil
         end
       end
@@ -130,6 +132,7 @@ defmodule WhisprNotifications.Preferences.Manager do
     do: v
 
   defp effective_mentions_only(%UserSettings{mentions_only: v}, _cs) when is_boolean(v), do: v
+  # coveralls-ignore-next-line — only reached if get_user_settings/1 falls back to nil
   defp effective_mentions_only(_us, _cs), do: false
 
   defp mentioned?(%Notification{metadata: %{"mentioned" => true}}), do: true
