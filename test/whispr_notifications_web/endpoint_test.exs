@@ -109,5 +109,13 @@ defmodule WhisprNotificationsWeb.EndpointTest do
       # URI vide => build_origin_string/1 fallback "" qui n'est dans aucune whitelist.
       assert Endpoint.ws_check_origin(%URI{}) == false
     end
+
+    test "accepte une origine quand le port n'est pas resolu par URI.parse" do
+      System.put_env("CORS_ALLOWED_ORIGINS", "https://app.example.com")
+
+      # Cas ou l'URI arrive avec port: nil (scheme custom non standard).
+      uri = %URI{scheme: "https", host: "app.example.com", port: nil}
+      assert Endpoint.ws_check_origin(uri) == true
+    end
   end
 end
