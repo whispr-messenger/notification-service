@@ -121,8 +121,8 @@ defmodule WhisprNotifications.Devices.CacheManager do
   @impl true
   def handle_info({ref, result}, state) when is_reference(ref) do
     case Map.pop(state.ref_to_user, ref) do
+      # coveralls-ignore-next-line - ref inconnue, branche defensive
       {nil, _} ->
-        # ref inconnue (Task lance avant un crash, ou monitor deja consomme).
         {:noreply, state}
 
       {user_id, ref_to_user} ->
@@ -154,6 +154,7 @@ defmodule WhisprNotifications.Devices.CacheManager do
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) when is_reference(ref) do
     case Map.pop(state.ref_to_user, ref) do
+      # coveralls-ignore-next-line - DOWN apres demonitor:flush, branche defensive
       {nil, _} ->
         {:noreply, state}
 
