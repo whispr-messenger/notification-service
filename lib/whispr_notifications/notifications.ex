@@ -58,6 +58,7 @@ defmodule WhisprNotifications.Notifications do
       "message" -> :message
       "group" -> :group
       "system" -> :system
+      "contact" -> :contact
       _ -> :invalid
     end
   end
@@ -71,10 +72,10 @@ defmodule WhisprNotifications.Notifications do
     end
   end
 
-  defp validate_type(:invalid), do: ["type doit être message, group ou system"]
+  defp validate_type(:invalid), do: ["type doit être message, group, system ou contact"]
   defp validate_type(nil), do: ["type est requis"]
-  defp validate_type(t) when t in [:message, :group, :system], do: []
-  defp validate_type(_), do: ["type doit être message, group ou system"]
+  defp validate_type(t) when t in [:message, :group, :system, :contact], do: []
+  defp validate_type(_), do: ["type doit être message, group, system ou contact"]
 
   defp validate_context(ctx) when is_map(ctx), do: []
   defp validate_context(_), do: ["context doit être un objet JSON"]

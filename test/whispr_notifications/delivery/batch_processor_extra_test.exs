@@ -79,16 +79,17 @@ defmodule WhisprNotifications.Delivery.BatchProcessorExtraTest do
   test "deliver/2 with a notif missing user_id falls back to a nil badge" do
     # Notification.new/1 enforces user_id, so we build the struct directly to
     # exercise the `current_badge(nil) -> nil` branch.
-    notif = struct!(Notification, %{
-      id: Ecto.UUID.generate(),
-      user_id: nil,
-      type: :system,
-      title: "x",
-      body: "y",
-      context: %{},
-      metadata: %{},
-      created_at: DateTime.utc_now() |> DateTime.truncate(:second)
-    })
+    notif =
+      struct!(Notification, %{
+        id: Ecto.UUID.generate(),
+        user_id: nil,
+        type: :system,
+        title: "x",
+        body: "y",
+        context: %{},
+        metadata: %{},
+        created_at: DateTime.utc_now() |> DateTime.truncate(:second)
+      })
 
     cache = NotificationFixtures.build_device_cache()
 

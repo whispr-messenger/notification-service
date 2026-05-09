@@ -106,6 +106,79 @@ defmodule WhisprNotifications.Workers.MessagingSubscriberExtraTest do
     assert :ok = MessagingSubscriber.process_message("whispr:messaging:new_message", payload)
   end
 
+  test "handle_message rescue clause swallows raised exceptions from Jason.decode" do
+    # Sending a non-binary payload through Jason.decode raises a
+    # FunctionClauseError; the `rescue` block in handle_message must absorb
+    # it and keep the GenServer alive.
+    pid = Process.whereis(MessagingSubscriber)
+
+    send(
+      pid,
+      {:redix_pubsub, nil, nil, :message,
+       %{channel: "whispr:messaging:new_message", payload: :not_binary}}
+    )
+
+    Process.sleep(150)
+    assert Process.alive?(pid)
+  end
+
+  test "process_message new_message accepts mentioned_user_ids and forwards mentioned flag" do
+    alias WhisprNotifications.Devices
+
+    {:ok, _} =
+      Devices.upsert(%{
+        user_id: @user,
+        device_id: "pixel-mention",
+        fcm_token: "tok-mention",
+        platform: "android"
+      })
+
+    Application.put_env(:whispr_notification, :fcm_spy_pid, self())
+
+    Application.put_env(
+      :whispr_notification,
+      :fcm_client_mod,
+      WhisprNotifications.Test.SpyFcmClient
+    )
+
+    payload = %{
+      "target_user_ids" => [@user, "", nil],
+      "mentioned_user_ids" => [@user, "", "noise"],
+      "count" => 1,
+      "message_type" => "text"
+    }
+
+    assert :ok = MessagingSubscriber.process_message("whispr:messaging:new_message", payload)
+    assert_receive {:fcm_send, %{token: "tok-mention"}, _payload}, 1_000
+  end
+
+  test "dispatch_push rescue clause swallows downstream errors" do
+    # Forcing History.save to receive a malformed notification is hard; the
+    # easiest reproducible MatchError comes from a non-string title produced
+    # by a numeric `sender_name` in the payload, which trips the changeset's
+    # cast on :title and yields {:error, changeset} instead of :ok.
+    alias WhisprNotifications.Devices
+
+    {:ok, _} =
+      Devices.upsert(%{
+        user_id: @user,
+        device_id: "pixel-rescue",
+        fcm_token: "tok-rescue",
+        platform: "android"
+      })
+
+    payload = %{
+      "target_user_ids" => [@user],
+      # Integer sender_name → title is an integer → History.save fails the
+      # `:ok = ` match and the rescue clause must absorb it.
+      "sender_name" => 12_345,
+      "count" => 1,
+      "message_type" => "text"
+    }
+
+    assert :ok = MessagingSubscriber.process_message("whispr:messaging:new_message", payload)
+  end
+
   test "produces the right body for every supported message_type" do
     alias WhisprNotifications.Devices
 

@@ -1,30 +1,30 @@
 defmodule WhisprNotifications.Delivery.ApnsClient do
   @moduledoc """
-  APNS push via Pigeon 2.x (HTTP/2 + JWT ES256).
+  Push APNS via Pigeon 2.x (HTTP/2 + JWT ES256).
 
-  Same callback contract as the previous stub so `BatchProcessor` and
-  `Devices.mark_invalid/2` don't need to change:
+  Meme contrat de callback que le stub precedent pour eviter d'avoir a
+  toucher `BatchProcessor` ni `Devices.mark_invalid/2` :
 
       :ok
-      | {:error, :token_invalid}     # hard failure — soft-delete the device
-      | {:error, :transient}         # retryable (network, 5xx, quota, auth)
-      | {:error, :not_configured}    # APNS creds absent in this env (dev/CI)
+      | {:error, :token_invalid}     # echec definitif, soft-delete le device
+      | {:error, :transient}         # retryable (reseau, 5xx, quota, auth)
+      | {:error, :not_configured}    # creds APNS absents (dev/CI)
 
-  Response atoms from `Pigeon.APNS` are mapped as follows:
+  Mapping des atomes de reponse de `Pigeon.APNS` :
 
-    * `:success`                                          → `:ok`
+    * `:success`                                          -> `:ok`
     * `:bad_device_token`, `:unregistered`,
       `:device_token_not_for_topic`, `:missing_device_token`,
       `:expired_token`, `:bad_topic`, `:topic_disallowed`,
-      `:invalid_push_type`                                → `{:error, :token_invalid}`
+      `:invalid_push_type`                                -> `{:error, :token_invalid}`
     * `:internal_server_error`, `:service_unavailable`,
       `:too_many_requests`, `:too_many_provider_token_updates`,
       `:expired_provider_token`, `:invalid_provider_token`,
       `:missing_provider_token`, `:idle_timeout`,
-      `:shutdown`, `:unknown_error`, `:timeout`           → `{:error, :transient}`
+      `:shutdown`, `:unknown_error`, `:timeout`           -> `{:error, :transient}`
 
-  Everything unknown degrades to `:transient` so we never drop a valid token
-  on an error we didn't anticipate.
+  Tout le reste retombe sur `:transient` pour eviter de perdre un token
+  valide sur une erreur qu'on n'avait pas prevue.
   """
 
   alias Pigeon.APNS.Notification, as: APNSNotification
@@ -64,9 +64,10 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   def send(_device, _payload), do: {:error, :token_invalid}
 
   @doc """
-  Builds a `Pigeon.APNS.Notification` from the internal payload shape used by
-  `BatchProcessor` + `Formatter.to_platform_payload/3`. Public so it can be
-  unit-tested without standing up a dispatcher.
+  Construit une `Pigeon.APNS.Notification` a partir de la shape payload
+  interne utilisee par `BatchProcessor` +
+  `Formatter.to_platform_payload/3`. Public pour pouvoir etre teste
+  sans avoir a demarrer un dispatcher.
   """
   @spec build_notification(DeviceCache.device(), map()) :: APNSNotification.t()
   def build_notification(%{token: token} = device, payload) do
@@ -81,8 +82,8 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   end
 
   @doc """
-  Pure mapping from a Pigeon APNS response atom back to the internal
-  `ApnsClient` contract. Public for unit-testing.
+  Mapping pur d'un atome de reponse Pigeon APNS vers le contrat interne
+  `ApnsClient`. Public pour les tests unitaires.
   """
   @spec response_to_result(APNSNotification.t()) ::
           :ok | {:error, :token_invalid | :transient}
@@ -98,7 +99,7 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
     {:error, :transient}
   end
 
-  # ----- private ---------------------------------------------------------
+  # ----- prive ----------------------------------------------------------
 
   defp apns_enabled? do
     :whispr_notification
@@ -136,8 +137,9 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
     :exit, _ -> {:error, :not_configured}
   end
 
-  # APNS topic = app bundle id. Falls back to a configured default if the
-  # device row didn't carry one (older inserts before the column existed).
+  # le topic APNS = le bundle id de l'app. fallback sur un default
+  # configure si le device en DB n'en porte pas (anciens inserts avant
+  # l'ajout de la colonne).
   defp topic_for(%{app: app}) when is_binary(app) and app != "", do: app
 
   defp topic_for(_device) do
@@ -146,9 +148,9 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
     |> Keyword.get(:default_topic)
   end
 
-  # Accepts both the `Formatter.to_platform_payload/3` shape (already
-  # `%{"aps" => %{...}, "meta" => %{...}}`) and a flat `%{title, body}`
-  # convenience shape used by some callers/tests.
+  # accepte la shape `Formatter.to_platform_payload/3` (deja
+  # `%{"aps" => %{...}, "meta" => %{...}}`) et une shape plate
+  # `%{title, body}` utilisee par certains callers/tests.
   defp normalise_payload(%{"aps" => _} = payload), do: payload
 
   defp normalise_payload(%{title: title, body: body} = payload) do
@@ -175,9 +177,11 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
 
   defp masked_token(device) do
     case token(device) do
+      # coveralls-ignore-start
       "unknown" ->
         "unknown"
 
+      # coveralls-ignore-stop
       t when is_binary(t) ->
         suffix_length = min(String.length(t), 6)
         "***" <> String.slice(t, -suffix_length, suffix_length)
@@ -185,5 +189,7 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   end
 
   defp token(%{token: t}) when is_binary(t), do: t
+  # coveralls-ignore-start
   defp token(_), do: "unknown"
+  # coveralls-ignore-stop
 end

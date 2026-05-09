@@ -288,11 +288,11 @@ Once all CI checks are green, use `mcp__github__merge_pull_request`:
   "owner": "whispr-messenger",
   "repo": "notification-service",
   "pullNumber": <number>,
-  "merge_method": "squash"
+  "merge_method": "merge"
 }
 ```
 
-Always use **squash** merge to keep `main` history linear.
+Always use **merge** (not squash - per user global rules §26) to keep the granular commit history.
 
 ---
 
@@ -314,7 +314,7 @@ git worktree remove .worktrees/<TICKET-KEY>-<short-kebab-description>
 git branch -d <TICKET-KEY>-<short-kebab-description>
 ```
 
-`git worktree remove` deletes the `.worktrees/<branch>` directory. `git branch -d` removes the local branch (the remote branch is deleted automatically by GitHub after squash merge).
+`git worktree remove` deletes the `.worktrees/<branch>` directory. `git branch -d` removes the local branch (the remote branch is deleted automatically by GitHub after merge).
 
 ---
 

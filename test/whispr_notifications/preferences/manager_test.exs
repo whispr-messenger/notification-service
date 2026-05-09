@@ -220,6 +220,22 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
       assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
     end
 
+    test "atom-keyed metadata: %{mentioned: true} also opts in to the mention" do
+      # Tests the alternate `mentioned?/1` clause keyed on the atom :mentioned
+      # (vs the string key handled above).
+      uid = unique_id("pref-mgr-atom-mention")
+      {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          conversation_id: nil,
+          metadata: %{mentioned: true}
+        })
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
     test "non-:message notifs ignore mentions_only" do
       uid = unique_id("pref-mgr-system")
       {:ok, _} = Manager.update_user_settings(uid, %{"mentions_only" => true})

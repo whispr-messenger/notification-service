@@ -12,7 +12,7 @@ defmodule WhisprNotifications.Notifications.Notification do
   # binary. Declaring :string caused DBConnection.EncodeError on insert.
   @primary_key {:id, Ecto.UUID, autogenerate: false}
 
-  @types ~w(message group system)a
+  @types ~w(message group system contact)a
   @required_new_keys [:user_id, :type, :title, :body]
 
   schema "notification_history" do
@@ -27,7 +27,7 @@ defmodule WhisprNotifications.Notifications.Notification do
     field :read_at, :utc_datetime
   end
 
-  @type type :: :message | :group | :system
+  @type type :: :message | :group | :system | :contact
 
   @type t :: %__MODULE__{
           id: String.t() | nil,
