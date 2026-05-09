@@ -41,11 +41,10 @@ config :logger, :console,
     :report_id,
     :appeal_id,
     :reported_user_id
-  ],
-  level: :info
+  ]
 
-config :logger,
-  level: :info
+# le niveau effectif est piloté par LOG_LEVEL au runtime (runtime.exs),
+# défaut :info si la variable est absente.
 
 # ======================================================================
 # Domain-specific settings (notifications)
