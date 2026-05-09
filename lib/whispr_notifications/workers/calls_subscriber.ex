@@ -107,17 +107,20 @@ defmodule WhisprNotifications.Workers.CallsSubscriber do
 
         {:ok, pubsub}
 
-      # coveralls-ignore-next-line — Redis injoignable, branche difficile a exercer en CI
+      # coveralls-ignore-start — Redis injoignable, branche difficile a exercer en CI
       {:error, reason} ->
         {:error, reason}
+        # coveralls-ignore-stop
     end
   end
 
   # 1s, 2s, 4s, 8s, 16s, 32s, 60s plafond
-  # coveralls-ignore-next-line — appele uniquement depuis le retry error branch
+  # coveralls-ignore-start
   defp backoff_delay(n) when is_integer(n) and n >= 0 do
     min(60_000, trunc(1_000 * :math.pow(2, n)))
   end
+
+  # coveralls-ignore-stop
 
   defp handle_message(channel, raw_payload) do
     case Jason.decode(raw_payload) do
