@@ -22,9 +22,7 @@ defmodule WhisprNotifications.JsonFormatterExtraTest do
 
   test "serialises tuples as JSON arrays" do
     output =
-      JsonFormatter.format(:info, "x", @ts,
-        coords: {1, 2, "three"}
-      )
+      JsonFormatter.format(:info, "x", @ts, coords: {1, 2, "three"})
 
     payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
 
@@ -33,9 +31,7 @@ defmodule WhisprNotifications.JsonFormatterExtraTest do
 
   test "stringifies non-atom non-binary metadata keys via inspect" do
     output =
-      JsonFormatter.format(:info, "x", @ts,
-        nested: %{42 => "answer", {:a, :b} => "tuple-key"}
-      )
+      JsonFormatter.format(:info, "x", @ts, nested: %{42 => "answer", {:a, :b} => "tuple-key"})
 
     payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
 
@@ -54,5 +50,33 @@ defmodule WhisprNotifications.JsonFormatterExtraTest do
     payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
 
     assert payload["message"] == ":not_chardata"
+  end
+
+  test "stringifies atom keys inside nested maps via sanitize_key/1" do
+    output =
+      JsonFormatter.format(:info, "x", @ts, nested: %{atom_key: "value", another: 1})
+
+    payload = Jason.decode!(String.trim(IO.iodata_to_binary(output)))
+
+    assert payload["nested"]["atom_key"] == "value"
+    assert payload["nested"]["another"] == 1
+  end
+
+  test "falls back to a textual frame when JSON encoding raises" do
+    # An invalid UTF-8 binary in metadata defeats Jason.encode_to_iodata!; the
+    # rescue branch must emit a minimal `{"level":..,"message":..}` frame
+    # (with newlines escaped) instead of crashing the logger.
+    invalid_utf8 = <<0xFF, 0xFE, 0xFD>>
+
+    output = JsonFormatter.format(:error, "boom\nline2", @ts, bad: invalid_utf8)
+
+    raw = IO.iodata_to_binary(output)
+
+    assert String.ends_with?(raw, "\n")
+    assert String.contains?(raw, ~s|"level":"error"|)
+    assert String.contains?(raw, "formatter error:")
+    # Newlines in the error message must be escaped, not bare.
+    body = String.trim_trailing(raw, "\n")
+    refute String.contains?(body, "\n")
   end
 end

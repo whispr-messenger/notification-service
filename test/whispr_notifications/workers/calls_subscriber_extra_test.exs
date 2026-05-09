@@ -3,6 +3,19 @@ defmodule WhisprNotifications.Workers.CallsSubscriberExtraTest do
 
   alias WhisprNotifications.Workers.CallsSubscriber
 
+  test "handle_message rescue clause swallows raised exceptions from Jason.decode" do
+    pid = Process.whereis(CallsSubscriber)
+
+    send(
+      pid,
+      {:redix_pubsub, nil, nil, :message,
+       %{channel: "whispr:calls:initiated", payload: :not_binary}}
+    )
+
+    Process.sleep(150)
+    assert Process.alive?(pid)
+  end
+
   test "handle_info :retry_connect stops the process" do
     assert {:stop, :normal, %{pubsub: nil}} =
              CallsSubscriber.handle_info(:retry_connect, %{pubsub: nil})
@@ -37,8 +50,7 @@ defmodule WhisprNotifications.Workers.CallsSubscriberExtraTest do
 
     send(
       pid,
-      {:redix_pubsub, nil, nil, :message,
-       %{channel: "whispr:calls:initiated", payload: payload}}
+      {:redix_pubsub, nil, nil, :message, %{channel: "whispr:calls:initiated", payload: payload}}
     )
 
     Process.sleep(100)

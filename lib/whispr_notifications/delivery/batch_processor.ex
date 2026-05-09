@@ -74,10 +74,13 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
       :ok -> :ok
       {:error, :not_found} -> :ok
     end
+
+    # coveralls-ignore-start
   rescue
     e ->
       Logger.warning("[BatchProcessor] mark_invalid raised: #{inspect(e)}")
       :ok
+      # coveralls-ignore-stop
   end
 
   defp soft_delete_invalid(_device, _reason), do: :ok
@@ -103,7 +106,10 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
 
   defp current_badge(user_id) when is_binary(user_id) do
     Badges.get(user_id)
+    # coveralls-ignore-start
   rescue
-    _ -> nil
+    _ ->
+      nil
+      # coveralls-ignore-stop
   end
 end

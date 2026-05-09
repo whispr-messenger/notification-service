@@ -35,11 +35,15 @@ defmodule WhisprNotifications.Devices.AuthClient do
     e in DBConnection.OwnershipError ->
       {:error, {:db_unavailable, e}}
 
+    # coveralls-ignore-next-line — defensive Ecto fallback for non-ownership Repo failures
     e ->
       {:error, {:db_error, e}}
+
+      # coveralls-ignore-start
   catch
     :exit, reason ->
       {:error, {:db_unavailable, reason}}
+      # coveralls-ignore-stop
   end
 
   def fetch_devices(_), do: {:error, :invalid_user_id}

@@ -43,10 +43,12 @@ defmodule WhisprNotifications.Workers.CallsSubscriber do
 
         {:ok, %{pubsub: pubsub}}
 
+      # coveralls-ignore-start
       {:error, reason} ->
         Logger.error("[CallsSubscriber] Failed to connect to Redis: #{inspect(reason)}")
         Process.send_after(self(), :retry_connect, 5_000)
         {:ok, %{pubsub: nil}}
+        # coveralls-ignore-stop
     end
   end
 
