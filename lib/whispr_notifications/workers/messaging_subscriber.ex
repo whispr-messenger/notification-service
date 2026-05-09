@@ -117,6 +117,7 @@ defmodule WhisprNotifications.Workers.MessagingSubscriber do
   end
 
   # 1s, 2s, 4s, 8s, 16s, 32s, 60s plafond
+  # coveralls-ignore-next-line — appele uniquement depuis le retry error branch
   defp backoff_delay(n) when is_integer(n) and n >= 0 do
     min(60_000, trunc(1_000 * :math.pow(2, n)))
   end
