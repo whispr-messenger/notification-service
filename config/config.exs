@@ -14,6 +14,7 @@ end
 # ======================================================================
 
 config :whispr_notification,
+  env: config_env(),
   ecto_repos: [WhisprNotifications.Repo],
   generators: [binary_id: true]
 
