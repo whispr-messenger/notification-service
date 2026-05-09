@@ -193,6 +193,28 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
       :ok
     end
 
+    test "entry without fetched_at stamp is treated as stale and triggers refresh" do
+      CountingAuthClient.reset_count()
+
+      # injecte directement dans le state un cache sans stamp (cas legacy ou
+      # cache pose hors CacheManager). la prochaine lecture doit declencher
+      # un refresh comme s'il etait stale.
+      pid = Process.whereis(CacheManager)
+
+      :sys.replace_state(pid, fn state ->
+        cache = %DeviceCache{user_id: "no-stamp-user", devices: [], fetched_at: nil}
+        put_in(state, [:caches, "no-stamp-user"], cache)
+      end)
+
+      assert {:ok, _} = CacheManager.get_cache("no-stamp-user", 5_000)
+
+      _ = :sys.get_state(pid)
+      Process.sleep(50)
+      _ = :sys.get_state(pid)
+
+      assert CountingAuthClient.get_count() == 1
+    end
+
     test "stale entry triggers async refresh and serves the existing value" do
       CountingAuthClient.reset_count()
 
