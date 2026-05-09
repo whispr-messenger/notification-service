@@ -5,7 +5,13 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
   use WhisprNotifications.DataCase, async: false
 
   alias WhisprNotifications.Devices.{CacheManager, DeviceCache}
-  alias WhisprNotifications.Devices.CacheManagerTest.{HangingAuthClient, SlowAuthClient}
+
+  alias WhisprNotifications.Devices.CacheManagerTest.{
+    CountingAuthClient,
+    CrashingAuthClient,
+    HangingAuthClient,
+    SlowAuthClient
+  }
 
   describe "get_cache/1" do
     test "lazily fetches a user's cache via AuthClient when absent" do
@@ -109,11 +115,7 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
       # waiters avec {:error, {:fetch_crashed, _}}.
       previous = Application.get_env(:whispr_notification, :devices_auth_client)
 
-      Application.put_env(
-        :whispr_notification,
-        :devices_auth_client,
-        WhisprNotifications.Devices.CacheManagerTest.CrashingAuthClient
-      )
+      Application.put_env(:whispr_notification, :devices_auth_client, CrashingAuthClient)
 
       on_exit(fn ->
         if previous,
@@ -171,6 +173,60 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
       assert state_before.inflight == state_after.inflight
       assert state_before.ref_to_user == state_after.ref_to_user
       assert Process.alive?(pid)
+    end
+  end
+
+  describe "TTL refresh (WHISPR-1394)" do
+    setup do
+      # client qui compte les fetchs : on doit en voir 2 (initial + refresh
+      # async declenche par stale entry).
+      previous = Application.get_env(:whispr_notification, :devices_auth_client)
+
+      Application.put_env(:whispr_notification, :devices_auth_client, CountingAuthClient)
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:whispr_notification, :devices_auth_client, previous),
+          else: Application.delete_env(:whispr_notification, :devices_auth_client)
+      end)
+
+      :ok
+    end
+
+    test "stale entry triggers async refresh and serves the existing value" do
+      CountingAuthClient.reset_count()
+
+      # premier appel : cache miss, fetch sync (compteur = 1).
+      assert {:ok, _} = CacheManager.get_cache("ttl-user", 5_000)
+
+      # on force l'entry a etre stale en backdating fetched_at.
+      pid = Process.whereis(CacheManager)
+
+      :sys.replace_state(pid, fn state ->
+        backdated = %DeviceCache{
+          state.caches["ttl-user"]
+          | fetched_at: DateTime.add(DateTime.utc_now(), -3600, :second)
+        }
+
+        put_in(state, [:caches, "ttl-user"], backdated)
+      end)
+
+      # 2eme appel : cache hit stale, on renvoie la valeur connue ET on
+      # declenche un refresh async (compteur passe a 2).
+      assert {:ok, _} = CacheManager.get_cache("ttl-user", 5_000)
+
+      # laisse le Task async se terminer.
+      _ = :sys.get_state(pid)
+      Process.sleep(50)
+      _ = :sys.get_state(pid)
+
+      assert CountingAuthClient.get_count() == 2
+
+      # apres le refresh, l'entry doit avoir un fetched_at recent.
+      state = :sys.get_state(pid)
+      cache = state.caches["ttl-user"]
+      assert %DateTime{} = cache.fetched_at
+      assert DateTime.diff(DateTime.utc_now(), cache.fetched_at, :second) < 5
     end
   end
 
@@ -249,5 +305,36 @@ defmodule WhisprNotifications.Devices.CacheManagerTest.CrashingAuthClient do
   @impl true
   def fetch_devices(_user_id) do
     raise "simulated crash"
+  end
+end
+
+defmodule WhisprNotifications.Devices.CacheManagerTest.CountingAuthClient do
+  @moduledoc false
+  alias WhisprNotifications.Devices.DeviceCache
+
+  @behaviour WhisprNotifications.Devices.AuthClient
+
+  def reset_count do
+    if :ets.whereis(__MODULE__) == :undefined do
+      :ets.new(__MODULE__, [:public, :named_table])
+    end
+
+    :ets.insert(__MODULE__, {:count, 0})
+  end
+
+  def get_count do
+    case :ets.lookup(__MODULE__, :count) do
+      [{:count, n}] -> n
+      _ -> 0
+    end
+  end
+
+  @impl true
+  def fetch_devices(user_id) do
+    if :ets.whereis(__MODULE__) != :undefined do
+      :ets.update_counter(__MODULE__, :count, 1, {:count, 0})
+    end
+
+    {:ok, %DeviceCache{user_id: user_id, devices: []}}
   end
 end

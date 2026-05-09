@@ -77,6 +77,10 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
       device_token: token,
       topic: topic,
       push_type: "alert",
+      # collapse_id : APNs deduplique sur cette cle si on rejoue un push
+      # apres une race :DOWN cote subscriber Redis. derive de l'id de notif
+      # via le Formatter (Pigeon impose 64 octets max, on est tres en dessous).
+      collapse_id: collapse_id(payload),
       payload: normalise_payload(payload)
     }
   end
@@ -151,7 +155,10 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   # accepte la shape `Formatter.to_platform_payload/3` (deja
   # `%{"aps" => %{...}, "meta" => %{...}}`) et une shape plate
   # `%{title, body}` utilisee par certains callers/tests.
-  defp normalise_payload(%{"aps" => _} = payload), do: payload
+  # collapse_id est extrait separement (transport via header APNs), on le
+  # retire du body JSON pour eviter du bruit cote payload Apple.
+  defp normalise_payload(%{"aps" => _} = payload),
+    do: Map.drop(payload, ["collapse_id", :collapse_id])
 
   defp normalise_payload(%{title: title, body: body} = payload) do
     base = %{
@@ -192,4 +199,16 @@ defmodule WhisprNotifications.Delivery.ApnsClient do
   # coveralls-ignore-start
   defp token(_), do: "unknown"
   # coveralls-ignore-stop
+
+  # le Formatter pose la cle sous "collapse_id" (string), mais on tolere aussi
+  # une shape avec atom : utile pour les tests qui passent un payload plat.
+  defp collapse_id(payload) when is_map(payload) do
+    case Map.get(payload, "collapse_id") || Map.get(payload, :collapse_id) do
+      key when is_binary(key) and key != "" -> key
+      _ -> nil
+    end
+  end
+
+  # coveralls-ignore-next-line - defensive non-map fallback
+  defp collapse_id(_), do: nil
 end
