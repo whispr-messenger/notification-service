@@ -15,7 +15,9 @@ config :whispr_notification, WhisprNotificationsWeb.Endpoint,
     scheme: "https"
   ],
   secret_key_base: System.get_env("SECRET_KEY_BASE"),
-  check_origin: false,
+  # WHISPR-1353 : whitelist runtime via CORS_ALLOWED_ORIGINS, pas de wildcard
+  # en prod. La fonction est definie sur l'Endpoint et lit l'env au demarrage.
+  check_origin: {WhisprNotificationsWeb.Endpoint, :ws_check_origin, []},
   server: true
 
 # ======================================================================
