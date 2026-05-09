@@ -51,6 +51,18 @@ defmodule WhisprNotificationsWeb.HealthControllerTest do
     assert conn.resp_body =~ "ready"
   end
 
+  test "GET /notification/api/v1/health/ready returns 200 via gateway-prefixed scope" do
+    Application.put_env(:whispr_notification, :health_checker, AllOkChecker)
+
+    conn =
+      :get
+      |> conn("/notification/api/v1/health/ready")
+      |> Router.call([])
+
+    assert conn.status == 200
+    assert conn.resp_body =~ "ready"
+  end
+
   test "GET /api/v1/health/ready returns 503 when postgres down" do
     Application.put_env(:whispr_notification, :health_checker, PgDownChecker)
 
