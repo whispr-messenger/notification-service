@@ -11,16 +11,16 @@ defmodule WhisprNotifications.Application do
   def start(_type, _args) do
     children =
       [
-        # Ecto Repo — must start before anything that queries the DB
+        # Repo Ecto, doit demarrer avant tout ce qui requete la DB
         WhisprNotifications.Repo,
-        # PubSub — must start before the Endpoint
+        # PubSub, doit demarrer avant l'Endpoint
         {Phoenix.PubSub, name: WhisprNotifications.PubSub},
-        # JWKS cache — must start before the Endpoint so the Authenticate plug
-        # has a live GenServer to call on the very first request.
+        # cache JWKS : doit demarrer avant l'Endpoint pour que le plug
+        # Authenticate ait un GenServer pret des la 1ere requete
         {WhisprNotifications.Auth.JwksCache, jwks_cache_opts()},
-        # Phoenix HTTP endpoint — binds the HTTP port declared in config
+        # endpoint HTTP Phoenix, bind le port HTTP declare dans la config
         WhisprNotificationsWeb.Endpoint,
-        # Domain supervisors/workers
+        # superviseurs et workers du domaine
         {WhisprNotifications.Devices.CacheManager, []},
         {WhisprNotifications.Workers.TokenRefresher, []},
         {WhisprNotifications.Workers.CacheSyncWorker, []},
@@ -36,14 +36,14 @@ defmodule WhisprNotifications.Application do
     Supervisor.start_link(children, opts)
   end
 
-  # Push dispatchers (Pigeon FCM + Pigeon APNS) only start when their
-  # respective creds are present. Otherwise we let the tree boot cleanly in
-  # dev/CI and the matching client returns `{:error, :not_configured}`.
+  # les dispatchers push (Pigeon FCM + Pigeon APNS) ne demarrent que si
+  # leurs creds respectifs sont fournis. sinon on laisse l'arbre booter
+  # proprement en dev/CI et le client retourne `{:error, :not_configured}`.
   defp push_children do
     fcm_children() ++ apns_children()
   end
 
-  # Goth + Pigeon FCM dispatcher — needs FCM service account + project id.
+  # dispatcher Goth + Pigeon FCM, requiert service account FCM + project id
   @doc false
   def fcm_children do
     cfg = Application.get_env(:whispr_notification, :fcm, [])
@@ -56,12 +56,12 @@ defmodule WhisprNotifications.Application do
       ]
     else
       _ ->
-        Logger.info("[FCM] not configured — Goth + FcmDispatcher not started")
+        Logger.info("[FCM] non configure - Goth + FcmDispatcher non demarres")
         []
     end
   end
 
-  # Pigeon APNS dispatcher — needs the .p8 path + key id + team id.
+  # dispatcher Pigeon APNS, requiert chemin du .p8 + key id + team id
   @doc false
   def apns_children do
     cfg = Application.get_env(:whispr_notification, :apns, [])
@@ -69,22 +69,23 @@ defmodule WhisprNotifications.Application do
     if Keyword.get(cfg, :enabled, false) do
       [WhisprNotifications.Delivery.ApnsDispatcher]
     else
-      Logger.info("[APNS] not configured — ApnsDispatcher not started")
+      Logger.info("[APNS] non configure - ApnsDispatcher non demarre")
       []
     end
   end
 
-  # Required by Phoenix to reload configuration on config_change/3
+  # requis par Phoenix pour recharger la conf via config_change/3
   @impl true
   def config_change(changed, _new, removed) do
     WhisprNotificationsWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 
-  # Build JwksCache options. We pre-fetch the JWKS once at boot so the cache
-  # starts with real keys; if the auth-service is unreachable, we fall back to
-  # an empty key set so the app still starts (the plug will just return 401
-  # until the cache is repopulated) instead of crash-looping the supervisor.
+  # construit les options du JwksCache. on prefetch les JWKS une fois au
+  # boot pour que le cache demarre avec des cles reelles. si auth-service
+  # est injoignable, on tombe sur un key set vide pour que l'app demarre
+  # quand meme (le plug renverra juste 401 jusqu'au prochain refresh) au
+  # lieu de crash-looper le superviseur.
   @doc false
   def jwks_cache_opts do
     jwt_cfg = Application.get_env(:whispr_notification, :jwt, [])
@@ -101,7 +102,7 @@ defmodule WhisprNotifications.Application do
 
       {:error, reason} ->
         Logger.warning(
-          "JWKS prefetch from #{inspect(url)} failed: #{inspect(reason)} — starting with empty key set"
+          "JWKS prefetch from #{inspect(url)} failed: #{inspect(reason)} - starting with empty key set"
         )
 
         [{:allow_empty, true}, {:jwks_url, url} | base]
