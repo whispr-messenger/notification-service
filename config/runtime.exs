@@ -98,7 +98,9 @@ if config_env() == :prod do
       port: 443,
       scheme: "https"
     ],
-    check_origin: false,
+    # WHISPR-1353 : whitelist runtime via CORS_ALLOWED_ORIGINS, pas de wildcard
+    # en prod. Cf. WhisprNotificationsWeb.Endpoint.ws_check_origin/1.
+    check_origin: {WhisprNotificationsWeb.Endpoint, :ws_check_origin, []},
     server: true
 
   config :whispr_notification,
