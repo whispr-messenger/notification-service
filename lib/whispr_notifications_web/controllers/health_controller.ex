@@ -33,10 +33,15 @@ defmodule WhisprNotificationsWeb.HealthController do
   def check_postgres do
     case SQL.query(Repo, "SELECT 1", []) do
       {:ok, _} -> :ok
+      # coveralls-ignore-next-line - branche defensive, on ne peut pas crasher le repo en test
       {:error, _} -> {:error, "postgres_down"}
     end
+
+    # coveralls-ignore-start
   rescue
-    _ -> {:error, "postgres_down"}
+    _ ->
+      {:error, "postgres_down"}
+      # coveralls-ignore-stop
   end
 
   @doc false
@@ -48,13 +53,19 @@ defmodule WhisprNotificationsWeb.HealthController do
 
         case result do
           {:ok, "PONG"} -> :ok
+          # coveralls-ignore-next-line - branche atteinte uniquement si Redis up mais corrompu, infra-dependant
           _ -> {:error, "redis_down"}
         end
 
+      # coveralls-ignore-next-line - branche atteinte si Redix.start_link refuse, infra-dependant
       _ ->
         {:error, "redis_down"}
     end
+
+    # coveralls-ignore-start
   rescue
-    _ -> {:error, "redis_down"}
+    _ ->
+      {:error, "redis_down"}
+      # coveralls-ignore-stop
   end
 end

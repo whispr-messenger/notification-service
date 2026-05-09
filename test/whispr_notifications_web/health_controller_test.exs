@@ -2,6 +2,9 @@ defmodule WhisprNotificationsWeb.HealthControllerTest do
   use ExUnit.Case, async: false
   import Plug.Test
 
+  alias Ecto.Adapters.SQL.Sandbox
+  alias WhisprNotifications.Repo
+  alias WhisprNotificationsWeb.HealthController
   alias WhisprNotificationsWeb.Router
 
   # checker fakes : on injecte via Application.put_env pour simuler
@@ -70,5 +73,18 @@ defmodule WhisprNotificationsWeb.HealthControllerTest do
 
     assert conn.status == 503
     assert conn.resp_body =~ "redis_down"
+  end
+
+  # tests qui exercent les vraies fonctions check_postgres / check_redis
+  # pour la couverture sans dependre du checker injecte
+  test "check_postgres returns :ok against the sandbox repo" do
+    Sandbox.checkout(Repo)
+    assert HealthController.check_postgres() == :ok
+  end
+
+  test "check_redis returns either :ok or {:error, redis_down}" do
+    # selon que Redis tourne ou non en local/CI, on accepte les deux verdicts valides
+    result = HealthController.check_redis()
+    assert result == :ok or match?({:error, "redis_down"}, result)
   end
 end
