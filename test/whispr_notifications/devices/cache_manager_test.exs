@@ -102,6 +102,39 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
     end
   end
 
+  describe "fetch crash handling" do
+    setup do
+      # client qui crash : on simule un raise qui ferait exploser un Task
+      # async_nolink. Le CacheManager doit survivre et repondre a tous les
+      # waiters avec {:error, {:fetch_crashed, _}}.
+      previous = Application.get_env(:whispr_notification, :devices_auth_client)
+
+      Application.put_env(
+        :whispr_notification,
+        :devices_auth_client,
+        WhisprNotifications.Devices.CacheManagerTest.CrashingAuthClient
+      )
+
+      on_exit(fn ->
+        if previous,
+          do: Application.put_env(:whispr_notification, :devices_auth_client, previous),
+          else: Application.delete_env(:whispr_notification, :devices_auth_client)
+      end)
+
+      :ok
+    end
+
+    test "fetch crash returns {:error, {:fetch_crashed, _}} and CacheManager survives" do
+      # CrashingAuthClient raise volontairement. Avec async_nolink, le
+      # CacheManager n'est pas tue. Les waiters sont notifies via le DOWN.
+      assert {:error, {:fetch_crashed, _reason}} =
+               CacheManager.get_cache("crash-user", 5_000)
+
+      # le GenServer principal doit toujours etre vivant.
+      assert Process.alive?(Process.whereis(CacheManager))
+    end
+  end
+
   describe "timeout handling" do
     setup do
       # client qui dort 5s : aucun get_cache(_, 200ms) ne peut reussir a temps.
@@ -167,5 +200,15 @@ defmodule WhisprNotifications.Devices.CacheManagerTest.HangingAuthClient do
   def fetch_devices(user_id) do
     Process.sleep(5_000)
     {:ok, %DeviceCache{user_id: user_id, devices: []}}
+  end
+end
+
+defmodule WhisprNotifications.Devices.CacheManagerTest.CrashingAuthClient do
+  @moduledoc false
+  @behaviour WhisprNotifications.Devices.AuthClient
+
+  @impl true
+  def fetch_devices(_user_id) do
+    raise "simulated crash"
   end
 end
