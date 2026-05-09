@@ -31,6 +31,11 @@ defmodule WhisprNotifications.Devices.CacheManager do
   # mailbox du caller (BatchProcessor, etc.) ne sature.
   @default_get_timeout 3_000
 
+  # TTL d'une entry en cache. Au-dela, on sert la valeur connue ET on declenche
+  # un refresh async, pour que les devices revoques/unregistered ne restent
+  # pas en memoire indefiniment si on a rate un refresh event Redis.
+  @cache_ttl_seconds 300
+
   # client par defaut. Configurable via :whispr_notification, :devices_auth_client
   # pour permettre l'injection de fakes en test (cf. cache_manager_test.exs).
   @default_auth_client AuthClient
@@ -94,8 +99,18 @@ defmodule WhisprNotifications.Devices.CacheManager do
   def handle_call({:get_cache, user_id}, from, state) do
     case Map.fetch(state.caches, user_id) do
       {:ok, cache} ->
-        # cache hit : reply sync, pas de fetch.
-        {:reply, {:ok, cache}, state}
+        # cache hit : reply sync. si l'entry est stale on declenche en plus
+        # un refresh async pour ne pas servir indefiniment des devices
+        # revoques. le caller n'attend pas le refresh, il garde la valeur
+        # connue (best-effort).
+        new_state =
+          if stale?(cache) and not Map.has_key?(state.inflight, user_id) do
+            trigger_refresh(state, user_id)
+          else
+            state
+          end
+
+        {:reply, {:ok, cache}, new_state}
 
       :error ->
         # cache miss : on enregistre le caller comme waiter et on lance
@@ -111,7 +126,7 @@ defmodule WhisprNotifications.Devices.CacheManager do
     # dans le cache uniquement si le fetch reussit.
     new_state =
       case auth_client().fetch_devices(user_id) do
-        {:ok, cache} -> put_in(state, [:caches, user_id], cache)
+        {:ok, cache} -> put_in(state, [:caches, user_id], stamp(cache))
         _ -> state
       end
 
@@ -134,10 +149,19 @@ defmodule WhisprNotifications.Devices.CacheManager do
         Process.demonitor(ref, [:flush])
 
         {_ref, waiters} = Map.fetch!(state.inflight, user_id)
-        Enum.each(waiters, &GenServer.reply(&1, result))
+
+        # on stamp le cache une fois pour que les waiters et l'entry stockee
+        # voient le meme fetched_at (utile pour les test == sur DeviceCache).
+        stamped_result =
+          case result do
+            {:ok, cache} -> {:ok, stamp(cache)}
+            other -> other
+          end
+
+        Enum.each(waiters, &GenServer.reply(&1, stamped_result))
 
         new_caches =
-          case result do
+          case stamped_result do
             {:ok, cache} -> Map.put(state.caches, user_id, cache)
             _ -> state.caches
           end
@@ -216,5 +240,32 @@ defmodule WhisprNotifications.Devices.CacheManager do
 
   defp auth_client do
     Application.get_env(:whispr_notification, :devices_auth_client, @default_auth_client)
+  end
+
+  # pose le stamp de fraicheur pour le TTL.
+  defp stamp(%DeviceCache{} = cache) do
+    %DeviceCache{cache | fetched_at: DateTime.utc_now()}
+  end
+
+  # une entry est stale si elle n'a pas de stamp (cache pose hors CacheManager)
+  # ou si elle a depasse le TTL.
+  defp stale?(%DeviceCache{fetched_at: nil}), do: true
+
+  defp stale?(%DeviceCache{fetched_at: at}) do
+    DateTime.diff(DateTime.utc_now(), at, :second) > @cache_ttl_seconds
+  end
+
+  # declenche un fetch async sans waiters : meme pattern que enqueue_waiter
+  # mais on ne bloque aucun caller. le resultat sera traite par handle_info
+  # et viendra remplacer l'entry stale dans le cache.
+  defp trigger_refresh(state, user_id) do
+    task =
+      Task.Supervisor.async_nolink(@task_supervisor, auth_client(), :fetch_devices, [user_id])
+
+    %{
+      state
+      | inflight: Map.put(state.inflight, user_id, {task.ref, []}),
+        ref_to_user: Map.put(state.ref_to_user, task.ref, user_id)
+    }
   end
 end

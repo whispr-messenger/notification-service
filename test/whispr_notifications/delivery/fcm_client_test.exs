@@ -56,6 +56,25 @@ defmodule WhisprNotifications.Delivery.FcmClientTest do
       assert notif.android == %{"priority" => "HIGH"}
     end
 
+    test "carries collapse_key in android map when payload provides it (WHISPR-1394)" do
+      payload = %{title: "t", body: "b", collapse_key: "msg:abc-123"}
+      notif = FcmClient.build_notification("t", :android, payload)
+
+      assert notif.android == %{"priority" => "HIGH", "collapse_key" => "msg:abc-123"}
+    end
+
+    test "omits collapse_key when payload key is absent or empty" do
+      # absent : aucun ajout sur l'android map
+      notif1 = FcmClient.build_notification("t", :android, %{title: "t", body: "b"})
+      refute Map.has_key?(notif1.android, "collapse_key")
+
+      # empty string : on ne pose rien
+      notif2 =
+        FcmClient.build_notification("t", :android, %{title: "t", body: "b", collapse_key: ""})
+
+      refute Map.has_key?(notif2.android, "collapse_key")
+    end
+
     test "leaves android nil for non-android platforms" do
       assert FcmClient.build_notification("t", :ios, %{title: "t", body: "b"}).android == nil
       assert FcmClient.build_notification("t", :web, %{title: "t", body: "b"}).android == nil
