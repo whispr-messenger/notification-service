@@ -16,6 +16,7 @@ defmodule WhisprNotificationsWeb.Router do
 
     # Only the health probe stays open; everything else requires a JWT.
     get("/v1/health", HealthController, :live)
+    get("/v1/health/ready", HealthController, :ready)
   end
 
   scope "/api", WhisprNotificationsWeb do
@@ -42,6 +43,7 @@ defmodule WhisprNotificationsWeb.Router do
     pipe_through(:api)
 
     get("/v1/health", HealthController, :live)
+    get("/v1/health/ready", HealthController, :ready)
   end
 
   scope "/notification/api", WhisprNotificationsWeb do
