@@ -48,10 +48,12 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
         Logger.info("[ContactsSubscriber] Subscribed to #{length(@channels)} contact channels")
         {:ok, %{pubsub: pubsub, retry_attempt: 0}}
 
+      # coveralls-ignore-start
       {:error, reason} ->
         Logger.error("[ContactsSubscriber] Failed to connect to Redis: #{inspect(reason)}")
         Process.send_after(self(), :retry_connect, 1_000)
         {:ok, %{pubsub: nil, retry_attempt: 1}}
+        # coveralls-ignore-stop
     end
   end
 
@@ -87,6 +89,7 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
         Logger.info("[ContactsSubscriber] Reconnected to Redis after #{n} attempts")
         {:noreply, %{state | pubsub: pubsub, retry_attempt: 0}}
 
+      # coveralls-ignore-start
       {:error, reason} ->
         delay = backoff_delay(n)
 
@@ -96,6 +99,7 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
 
         Process.send_after(self(), :retry_connect, delay)
         {:noreply, %{state | pubsub: nil, retry_attempt: n + 1}}
+        # coveralls-ignore-stop
     end
   end
 
@@ -113,6 +117,7 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
 
         {:ok, pubsub}
 
+      # coveralls-ignore-next-line — Redis injoignable, branche difficile a exercer en CI
       {:error, reason} ->
         {:error, reason}
     end
