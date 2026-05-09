@@ -69,18 +69,19 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberTest do
     assert Process.alive?(pid)
   end
 
-  test "retry_connect stops the GenServer (supervisor will restart it)" do
+  test "disconnected event stops the GenServer with :redis_disconnected (supervisor restarts it)" do
     pid = Process.whereis(ModerationSubscriber)
     ref = Process.monitor(pid)
-    send(pid, :retry_connect)
+    send(pid, {:redix_pubsub, nil, nil, :disconnected, %{error: :tcp_closed}})
 
-    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}, 1_000
+    assert_receive {:DOWN, ^ref, :process, ^pid, :redis_disconnected}, 1_000
 
-    # Wait for supervisor to restart the process
-    Process.sleep(200)
+    # le Supervisor doit relancer le worker proprement
+    Process.sleep(300)
     new_pid = Process.whereis(ModerationSubscriber)
     assert is_pid(new_pid)
     assert Process.alive?(new_pid)
+    assert new_pid != pid
   end
 
   test "routes blocked image appeal channels without crashing" do
