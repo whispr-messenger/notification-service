@@ -7,7 +7,12 @@ defmodule WhisprNotifications.Devices.DeviceCache do
   defstruct [
     :user_id,
     # liste de devices connus pour cet utilisateur
-    devices: []
+    devices: [],
+    # stamp pose par CacheManager au moment ou l'entry est mise en cache.
+    # nil pour les caches construits hors CacheManager (ex AuthClient direct).
+    # sert au TTL : evite que des devices revoques restent en memoire
+    # indefiniment si on rate un refresh event Redis.
+    fetched_at: nil
   ]
 
   @type platform :: :ios | :android | :web
@@ -23,7 +28,8 @@ defmodule WhisprNotifications.Devices.DeviceCache do
 
   @type t :: %__MODULE__{
           user_id: String.t(),
-          devices: [device()]
+          devices: [device()],
+          fetched_at: DateTime.t() | nil
         }
 
   @spec add_device(t(), device()) :: t()
