@@ -135,6 +135,45 @@ defmodule WhisprNotifications.Devices.CacheManagerTest do
     end
   end
 
+  describe "DOWN handler robustness" do
+    test "DOWN with unknown ref logs warn and leaves state unchanged" do
+      pid = Process.whereis(CacheManager)
+      state_before = :sys.get_state(pid)
+
+      # envoie un DOWN avec une ref jamais enregistree dans ref_to_user
+      ref = make_ref()
+      send(pid, {:DOWN, ref, :process, self(), :normal})
+
+      # laisse le GenServer traiter le message
+      _ = :sys.get_state(pid)
+
+      state_after = :sys.get_state(pid)
+
+      assert state_before.inflight == state_after.inflight
+      assert state_before.ref_to_user == state_after.ref_to_user
+      assert Process.alive?(pid)
+    end
+
+    test "result for unknown ref logs warn and leaves state unchanged" do
+      pid = Process.whereis(CacheManager)
+      state_before = :sys.get_state(pid)
+
+      # envoie un message {ref, result} avec une ref inconnue
+      ref = make_ref()
+      send(pid, {ref, {:ok, %DeviceCache{user_id: "phantom", devices: []}}})
+
+      _ = :sys.get_state(pid)
+
+      state_after = :sys.get_state(pid)
+
+      # le cache phantom NE doit PAS avoir ete ajoute
+      refute Map.has_key?(state_after.caches, "phantom")
+      assert state_before.inflight == state_after.inflight
+      assert state_before.ref_to_user == state_after.ref_to_user
+      assert Process.alive?(pid)
+    end
+  end
+
   describe "timeout handling" do
     setup do
       # client qui dort 5s : aucun get_cache(_, 200ms) ne peut reussir a temps.

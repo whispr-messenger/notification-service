@@ -22,6 +22,7 @@ defmodule WhisprNotifications.Devices.CacheManager do
   """
 
   use GenServer
+  require Logger
 
   alias WhisprNotifications.Devices.{AuthClient, DeviceCache}
 
@@ -121,8 +122,10 @@ defmodule WhisprNotifications.Devices.CacheManager do
   @impl true
   def handle_info({ref, result}, state) when is_reference(ref) do
     case Map.pop(state.ref_to_user, ref) do
-      # coveralls-ignore-next-line - ref inconnue, branche defensive
       {nil, _} ->
+        # ref inconnue : log warn et ignore. ne devrait pas arriver en pratique
+        # car on tracke chaque Task ref dans ref_to_user au moment de l'async.
+        Logger.warning("[CacheManager] result for unknown ref #{inspect(ref)}")
         {:noreply, state}
 
       {user_id, ref_to_user} ->
@@ -154,18 +157,31 @@ defmodule WhisprNotifications.Devices.CacheManager do
   @impl true
   def handle_info({:DOWN, ref, :process, _pid, reason}, state) when is_reference(ref) do
     case Map.pop(state.ref_to_user, ref) do
-      # coveralls-ignore-next-line - DOWN apres demonitor:flush, branche defensive
       {nil, _} ->
+        # DOWN sur ref inconnue (typiquement apres demonitor :flush qui a
+        # deja consomme le DOWN, ou race rare). on log et on ignore : pas
+        # de cleanup a faire puisque l'entry inflight a deja ete purgee
+        # cote handle_info({ref, result}).
+        Logger.warning(
+          "[CacheManager] DOWN for unknown ref #{inspect(ref)} reason=#{inspect(reason)}"
+        )
+
         {:noreply, state}
 
       {user_id, ref_to_user} ->
-        {_ref, waiters} = Map.fetch!(state.inflight, user_id)
+        # nettoyer meme si l'entry inflight est deja partie (defensif sur race)
+        {waiters, inflight} =
+          case Map.pop(state.inflight, user_id) do
+            {{_ref, waiters}, rest} -> {waiters, rest}
+            {nil, rest} -> {[], rest}
+          end
+
         Enum.each(waiters, &GenServer.reply(&1, {:error, {:fetch_crashed, reason}}))
 
         {:noreply,
          %{
            state
-           | inflight: Map.delete(state.inflight, user_id),
+           | inflight: inflight,
              ref_to_user: ref_to_user
          }}
     end
