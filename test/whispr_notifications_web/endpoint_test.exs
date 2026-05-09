@@ -90,5 +90,24 @@ defmodule WhisprNotificationsWeb.EndpointTest do
 
       assert Endpoint.ws_check_origin(URI.parse("https://app.example.com:443")) == true
     end
+
+    test "considere le port 80 comme canonique pour http" do
+      System.put_env("CORS_ALLOWED_ORIGINS", "http://internal.lan")
+
+      assert Endpoint.ws_check_origin(URI.parse("http://internal.lan:80")) == true
+    end
+
+    test "garde un port custom dans l'origine reconstruite" do
+      System.put_env("CORS_ALLOWED_ORIGINS", "https://app.example.com:8443")
+
+      assert Endpoint.ws_check_origin(URI.parse("https://app.example.com:8443")) == true
+    end
+
+    test "rejette une URI sans scheme/host (cas pathologique)" do
+      System.put_env("CORS_ALLOWED_ORIGINS", "https://app.example.com")
+
+      # URI vide => build_origin_string/1 fallback "" qui n'est dans aucune whitelist.
+      assert Endpoint.ws_check_origin(%URI{}) == false
+    end
   end
 end
