@@ -3,9 +3,20 @@ defmodule WhisprNotifications.Workers.ModerationSubscriberExtraTest do
 
   alias WhisprNotifications.Workers.ModerationSubscriber
 
-  test "handle_info :retry_connect stops the process" do
-    assert {:stop, :normal, %{pubsub: nil}} =
-             ModerationSubscriber.handle_info(:retry_connect, %{pubsub: nil})
+  test "handle_info :retry_connect renvoie :noreply et garde le state structurel" do
+    # selon que Redis local est dispo ou non, on a soit un reconnect reussi
+    # ({:ok, pubsub}), soit un backoff programme. Dans les deux cas on doit
+    # rester :noreply et conserver la cle :retry_attempt.
+    assert {:noreply, %{retry_attempt: _}} =
+             ModerationSubscriber.handle_info(:retry_connect, %{pubsub: nil, retry_attempt: 0})
+  end
+
+  test "handle_info :disconnected stops with :redis_disconnected" do
+    assert {:stop, :redis_disconnected, %{pubsub: nil, retry_attempt: 0}} =
+             ModerationSubscriber.handle_info(
+               {:redix_pubsub, :pid, :ref, :disconnected, %{error: :tcp_closed}},
+               %{pubsub: nil, retry_attempt: 0}
+             )
   end
 
   test "handle_info catch-all keeps state" do
