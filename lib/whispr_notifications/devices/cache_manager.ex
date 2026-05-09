@@ -172,8 +172,12 @@ defmodule WhisprNotifications.Devices.CacheManager do
         # nettoyer meme si l'entry inflight est deja partie (defensif sur race)
         {waiters, inflight} =
           case Map.pop(state.inflight, user_id) do
-            {{_ref, waiters}, rest} -> {waiters, rest}
-            {nil, rest} -> {[], rest}
+            {{_ref, waiters}, rest} ->
+              {waiters, rest}
+
+            # coveralls-ignore-next-line - inflight deja purge, branche defensive
+            {nil, rest} ->
+              {[], rest}
           end
 
         Enum.each(waiters, &GenServer.reply(&1, {:error, {:fetch_crashed, reason}}))
