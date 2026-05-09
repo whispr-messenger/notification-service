@@ -35,8 +35,8 @@ defmodule WhisprNotification.MixProject do
 
   defp deps do
     [
-      {:phoenix, "~> 1.8.0"},
-      {:plug_cowboy, "~> 2.6"},
+      {:phoenix, "~> 1.8.6"},
+      {:plug_cowboy, "~> 2.8.1"},
       {:phoenix_ecto, "~> 4.5"},
       {:phoenix_html, "~> 3.3"},
       {:phoenix_live_dashboard, "~> 0.8.3"},
