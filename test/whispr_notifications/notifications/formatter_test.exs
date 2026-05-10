@@ -58,4 +58,29 @@ defmodule WhisprNotifications.Notifications.FormatterTest do
       assert is_map(payload["data"])
     end
   end
+
+  describe "collapse_key dedup (WHISPR-1394)" do
+    test "android payload carries collapse_key derived from notification id" do
+      notif = NotificationFixtures.build_notification(%{id: "msg-id-42"})
+      payload = Formatter.to_platform_payload(notif, :android)
+
+      assert payload.collapse_key == "msg:msg-id-42"
+    end
+
+    test "ios payload carries collapse_id derived from notification id" do
+      notif = NotificationFixtures.build_notification(%{id: "msg-id-42"})
+      payload = Formatter.to_platform_payload(notif, :ios)
+
+      assert payload["collapse_id"] == "msg:msg-id-42"
+    end
+
+    test "two payloads for the same notification produce the same collapse key" do
+      notif = NotificationFixtures.build_notification(%{id: "stable-id"})
+
+      first = Formatter.to_platform_payload(notif, :android)
+      second = Formatter.to_platform_payload(notif, :android)
+
+      assert first.collapse_key == second.collapse_key
+    end
+  end
 end

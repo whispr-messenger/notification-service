@@ -88,6 +88,32 @@ defmodule WhisprNotifications.Delivery.ApnsClientTest do
       notif = ApnsClient.build_notification(device, payload)
       assert notif.payload == payload
     end
+
+    test "sets collapse_id from payload and strips it from the body (WHISPR-1394)" do
+      device = NotificationFixtures.build_ios_device()
+      payload = %{"aps" => %{"alert" => "hi"}, "collapse_id" => "msg:abc-123"}
+      notif = ApnsClient.build_notification(device, payload)
+
+      assert notif.collapse_id == "msg:abc-123"
+      # collapse_id transitse via header HTTP/2, on ne le laisse pas dans le body.
+      refute Map.has_key?(notif.payload, "collapse_id")
+    end
+
+    test "leaves collapse_id nil when payload has no collapse_id" do
+      device = NotificationFixtures.build_ios_device()
+      payload = %{"aps" => %{"alert" => "hi"}}
+      notif = ApnsClient.build_notification(device, payload)
+
+      assert notif.collapse_id == nil
+    end
+
+    test "leaves collapse_id nil when payload provides empty string" do
+      device = NotificationFixtures.build_ios_device()
+      payload = %{"aps" => %{"alert" => "hi"}, "collapse_id" => ""}
+      notif = ApnsClient.build_notification(device, payload)
+
+      assert notif.collapse_id == nil
+    end
   end
 
   describe "response_to_result/1" do

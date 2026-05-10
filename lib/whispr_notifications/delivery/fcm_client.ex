@@ -57,7 +57,7 @@ defmodule WhisprNotifications.Delivery.FcmClient do
   def build_notification(token, platform, payload) do
     {:token, token}
     |> FCMNotification.new(notification_map(payload), data_map(payload))
-    |> put_android(platform)
+    |> put_android(platform, payload)
   end
 
   @doc """
@@ -132,8 +132,26 @@ defmodule WhisprNotifications.Delivery.FcmClient do
 
   # Android `priority: HIGH` matches the behaviour of the old custom client:
   # notifications delivered immediately even if the device is dozing.
-  defp put_android(%FCMNotification{} = notif, :android),
-    do: %{notif | android: %{"priority" => "HIGH"}}
+  # collapse_key (FCM HTTP v1 spec) deduplique cote delivery quand on rejoue
+  # le meme event Redis apres une race :DOWN.
+  defp put_android(%FCMNotification{} = notif, :android, payload) do
+    android =
+      %{"priority" => "HIGH"}
+      |> maybe_put_collapse_key(payload)
 
-  defp put_android(%FCMNotification{} = notif, _), do: notif
+    %{notif | android: android}
+  end
+
+  defp put_android(%FCMNotification{} = notif, _, _payload), do: notif
+
+  defp maybe_put_collapse_key(android, payload) do
+    case collapse_key(payload) do
+      key when is_binary(key) and key != "" -> Map.put(android, "collapse_key", key)
+      _ -> android
+    end
+  end
+
+  defp collapse_key(payload) do
+    Map.get(payload, :collapse_key) || Map.get(payload, "collapse_key")
+  end
 end

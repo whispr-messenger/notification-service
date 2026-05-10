@@ -101,12 +101,23 @@ if config_env() == :prod do
       port: 443,
       scheme: "https"
     ],
-    check_origin: false,
+    # WHISPR-1353 : whitelist runtime via CORS_ALLOWED_ORIGINS, pas de wildcard
+    # en prod. Cf. WhisprNotificationsWeb.Endpoint.ws_check_origin/1.
+    check_origin: {WhisprNotificationsWeb.Endpoint, :ws_check_origin, []},
     server: true
 
   config :whispr_notification,
     grpc_port: String.to_integer(System.get_env("GRPC_PORT", "40011"))
 end
+
+# WHISPR-1427 : LOG_LEVEL pilote le niveau Logger au runtime sans rebuild.
+# Valeurs valides : debug | info | warning | error. Défaut : info.
+log_level =
+  System.get_env("LOG_LEVEL", "info")
+  |> String.downcase()
+  |> String.to_existing_atom()
+
+config :logger, level: log_level
 
 # WHISPR-1068 : LOG_FORMAT=json → formatter JSON unifié avec les services
 # NestJS. Sinon on garde la sortie texte native pour `mix phx.server`.
@@ -115,6 +126,19 @@ if System.get_env("LOG_FORMAT") == "json" do
     format: {WhisprNotifications.JsonFormatter, :format},
     metadata: :all
 end
+
+# WHISPR-1427 : Sentry error tracking. No-op si SENTRY_DSN est absent ou vide.
+# Positionner SENTRY_DSN dans les secrets k8s pour activer la capture en prod.
+sentry_dsn = System.get_env("SENTRY_DSN", "")
+
+config :sentry,
+  dsn: if(sentry_dsn != "", do: sentry_dsn, else: nil),
+  environment_name: System.get_env("RELEASE_LEVEL", "production"),
+  enable_source_code_context: false,
+  root_source_code_paths: [File.cwd!()],
+  tags: %{
+    service: "notification-service"
+  }
 
 # WHISPR-1157 : FCM HTTP v1. Le service account JSON arrive soit via le
 # chemin d'un fichier (FCM_JSON_KEYFILE) soit en ligne (FCM_JSON). Quand

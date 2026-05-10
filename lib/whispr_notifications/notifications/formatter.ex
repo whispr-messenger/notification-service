@@ -19,6 +19,10 @@ defmodule WhisprNotifications.Notifications.Formatter do
 
     %{
       notification: notification,
+      # collapse_key : FCM deduplique cote delivery quand on rejoue le meme
+      # event (subscriber Redis qui re-publie apres un :DOWN par exemple).
+      # on derive de l'id de notif pour avoir une cle stable par message.
+      collapse_key: collapse_key_for(n),
       data:
         n.context
         |> Map.merge(%{
@@ -42,6 +46,9 @@ defmodule WhisprNotifications.Notifications.Formatter do
 
     %{
       "aps" => aps,
+      # meme principe que collapse_key cote FCM : APNs collapse_id deduplique
+      # un push si on rejoue le meme event apres une race :DOWN.
+      "collapse_id" => collapse_key_for(n),
       "meta" => %{
         "notification_id" => n.id,
         "type" => Atom.to_string(n.type)
@@ -76,4 +83,12 @@ defmodule WhisprNotifications.Notifications.Formatter do
       true -> key
     end
   end
+
+  # cle de dedup stable par notification. APNs limite collapse_id a 64 octets
+  # et FCM ne fixe pas de borne, donc le prefixe + UUID rentre toujours.
+  defp collapse_key_for(%Notification{id: id}) when is_binary(id) and id != "",
+    do: "msg:" <> id
+
+  # coveralls-ignore-next-line - defensive : id est require par Notification.new/1
+  defp collapse_key_for(_), do: nil
 end
