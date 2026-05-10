@@ -35,6 +35,9 @@ defmodule WhisprNotificationsWeb.Router do
 
     post("/v1/devices", DevicesController, :register)
     delete("/v1/devices/:device_id", DevicesController, :unregister)
+
+    get("/v1/inbox", InboxController, :index)
+    post("/v1/inbox/mark-read", InboxController, :mark_read)
   end
 
   # ── /notification/api (when the gateway forwards the full path) ──
@@ -62,5 +65,8 @@ defmodule WhisprNotificationsWeb.Router do
 
     post("/v1/devices", DevicesController, :register)
     delete("/v1/devices/:device_id", DevicesController, :unregister)
+
+    get("/v1/inbox", InboxController, :index)
+    post("/v1/inbox/mark-read", InboxController, :mark_read)
   end
 end

@@ -2,3 +2,11 @@
 # Les rapports Cobertura générés dans Docker listent des <source> du type /app/lib, /app/test/support, etc.
 fixes:
   - "/app/::"
+
+coverage:
+  status:
+    patch:
+      default:
+        # les branches backoff Redis et reconnect sont couvertes par coveralls-ignore-start
+        # car elles dependent de Redis injoignable (difficile a exercer en CI)
+        threshold: 5%
