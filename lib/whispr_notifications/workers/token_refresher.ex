@@ -37,18 +37,28 @@ defmodule WhisprNotifications.Workers.TokenRefresher do
 
   @impl true
   def init(_opts) do
-    schedule()
-    {:ok, %{last_run: nil, deleted: 0}}
+    timer_ref = schedule()
+    {:ok, %{last_run: nil, deleted: 0, timer_ref: timer_ref}}
   end
 
   @impl true
   def handle_info(:refresh_tokens, state) do
     new_state = run_cycle(state)
-    schedule()
-    {:noreply, new_state}
+    timer_ref = schedule()
+    {:noreply, %{new_state | timer_ref: timer_ref}}
   end
 
   def handle_info(_other, state), do: {:noreply, state}
+
+  @impl true
+  def terminate(_reason, %{timer_ref: ref}) when is_reference(ref) do
+    # cancel le timer pendant pour eviter qu'il fire dans un mailbox d'un
+    # eventuel restart supervisor (benign, mais hygiene propre).
+    Process.cancel_timer(ref)
+    :ok
+  end
+
+  def terminate(_reason, _state), do: :ok
 
   @doc """
   Exécute un cycle immédiatement (utile pour les tests et pour un
@@ -110,6 +120,7 @@ defmodule WhisprNotifications.Workers.TokenRefresher do
   end
 
   defp schedule do
+    # retourne le ref pour que l'appelant puisse le cancel dans terminate/2.
     Process.send_after(self(), :refresh_tokens, interval_ms())
   end
 
