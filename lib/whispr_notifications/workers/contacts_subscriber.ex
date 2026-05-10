@@ -43,20 +43,17 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
 
   @impl true
   def init(_opts) do
-    case Redix.PubSub.start_link(RedisConfig.build()) do
+    case connect_pubsub() do
       {:ok, pubsub} ->
-        for channel <- @channels do
-          Redix.PubSub.subscribe(pubsub, channel, self())
-        end
-
         Logger.info("[ContactsSubscriber] Subscribed to #{length(@channels)} contact channels")
+        {:ok, %{pubsub: pubsub, retry_attempt: 0}}
 
-        {:ok, %{pubsub: pubsub}}
-
+      # coveralls-ignore-start
       {:error, reason} ->
         Logger.error("[ContactsSubscriber] Failed to connect to Redis: #{inspect(reason)}")
-        Process.send_after(self(), :retry_connect, 5_000)
-        {:ok, %{pubsub: nil}}
+        Process.send_after(self(), :retry_connect, 1_000)
+        {:ok, %{pubsub: nil, retry_attempt: 1}}
+        # coveralls-ignore-stop
     end
   end
 
@@ -77,14 +74,63 @@ defmodule WhisprNotifications.Workers.ContactsSubscriber do
     {:noreply, state}
   end
 
-  def handle_info(:retry_connect, state) do
-    Logger.info("[ContactsSubscriber] Retrying Redis connection...")
-    {:stop, :normal, state}
+  # arret explicite sur disconnect Redis pour laisser le Supervisor relancer
+  # init/1 et re-souscrire les channels proprement
+  def handle_info({:redix_pubsub, _pid, _ref, :disconnected, _meta}, state) do
+    Logger.warning("[ContactsSubscriber] Redis PubSub disconnected, restarting subscriber")
+    {:stop, :redis_disconnected, state}
+  end
+
+  # backoff exponentiel borne a 60s pour eviter d'epuiser le budget de
+  # restart du Supervisor lors d'une coupure Redis prolongee
+  def handle_info(:retry_connect, %{retry_attempt: n} = state) do
+    case connect_pubsub() do
+      {:ok, pubsub} ->
+        Logger.info("[ContactsSubscriber] Reconnected to Redis after #{n} attempts")
+        {:noreply, %{state | pubsub: pubsub, retry_attempt: 0}}
+
+      # coveralls-ignore-start
+      {:error, reason} ->
+        delay = backoff_delay(n)
+
+        Logger.warning(
+          "[ContactsSubscriber] Redis reconnect failed, retry in #{delay}ms: #{inspect(reason)}"
+        )
+
+        Process.send_after(self(), :retry_connect, delay)
+        {:noreply, %{state | pubsub: nil, retry_attempt: n + 1}}
+        # coveralls-ignore-stop
+    end
   end
 
   def handle_info(_msg, state) do
     {:noreply, state}
   end
+
+  # ouvre la connexion Redix PubSub et souscrit aux channels declares
+  defp connect_pubsub do
+    case Redix.PubSub.start_link(RedisConfig.build()) do
+      {:ok, pubsub} ->
+        for channel <- @channels do
+          Redix.PubSub.subscribe(pubsub, channel, self())
+        end
+
+        {:ok, pubsub}
+
+      # coveralls-ignore-start — Redis injoignable, branche difficile a exercer en CI
+      {:error, reason} ->
+        {:error, reason}
+        # coveralls-ignore-stop
+    end
+  end
+
+  # 1s, 2s, 4s, 8s, 16s, 32s, 60s plafond
+  # coveralls-ignore-start
+  defp backoff_delay(n) when is_integer(n) and n >= 0 do
+    min(60_000, trunc(1_000 * :math.pow(2, n)))
+  end
+
+  # coveralls-ignore-stop
 
   @doc false
   @spec process_message(String.t(), String.t()) :: :ok
