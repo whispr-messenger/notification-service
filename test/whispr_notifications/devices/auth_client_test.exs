@@ -43,6 +43,33 @@ defmodule WhisprNotifications.Devices.AuthClientTest do
     assert by_token["ios-tok"].internal_id == ios.id
   end
 
+  test "uses configured APNS topic for iOS devices instead of app_version" do
+    previous = Application.get_env(:whispr_notification, :apns)
+
+    Application.put_env(:whispr_notification, :apns,
+      enabled: false,
+      default_topic: "com.anonymous.Whispr-Frontend"
+    )
+
+    try do
+      {:ok, _ios} =
+        Devices.upsert(%{
+          user_id: @user_id,
+          device_id: "iphone-topic",
+          fcm_token: "ios-topic-tok",
+          platform: "ios",
+          app_version: "2.0.0"
+        })
+
+      assert {:ok, %DeviceCache{devices: devices}} = AuthClient.fetch_devices(@user_id)
+      ios_device = Enum.find(devices, &(&1.token == "ios-topic-tok"))
+
+      assert ios_device.app == "com.anonymous.Whispr-Frontend"
+    after
+      restore(:apns, previous)
+    end
+  end
+
   test "omits soft-deleted devices" do
     {:ok, alive} =
       Devices.upsert(%{
@@ -71,4 +98,7 @@ defmodule WhisprNotifications.Devices.AuthClientTest do
     assert {:error, :invalid_user_id} = AuthClient.fetch_devices(nil)
     assert {:error, :invalid_user_id} = AuthClient.fetch_devices("")
   end
+
+  defp restore(key, nil), do: Application.delete_env(:whispr_notification, key)
+  defp restore(key, value), do: Application.put_env(:whispr_notification, key, value)
 end

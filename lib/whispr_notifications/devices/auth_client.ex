@@ -52,11 +52,19 @@ defmodule WhisprNotifications.Devices.AuthClient do
     %{
       token: device.fcm_token,
       platform: platform_atom(device.platform),
-      app: device.app_version,
+      app: app_topic(device),
       device_id: device.device_id,
       internal_id: device.id
     }
   end
+
+  defp app_topic(%{platform: "ios"}) do
+    :whispr_notification
+    |> Application.get_env(:apns, [])
+    |> Keyword.get(:default_topic)
+  end
+
+  defp app_topic(device), do: device.app_version
 
   defp platform_atom("android"), do: :android
   defp platform_atom("ios"), do: :ios
