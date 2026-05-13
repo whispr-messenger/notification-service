@@ -47,7 +47,6 @@ defmodule WhisprNotification.MixProject do
       {:grpcbox, "~> 0.17"},
       {:protobuf, "~> 0.12"},
       {:jason, "~> 1.4"},
-      {:poison, "~> 6.0"},
       {:req, "~> 0.5"},
       {:joken, "~> 2.6"},
       {:elixir_uuid, "~> 1.2"},
