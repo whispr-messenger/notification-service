@@ -1,144 +1,251 @@
-# Whispr Messenger - Notification Microservice
+# Whispr Messenger — notification-service
 
 [![App Status](https://argocd.whispr.epitech.beer/api/badge?name=notification-service&revision=true&showAppName=true)](https://argocd.whispr.epitech.beer/applications/notification-service)
 
-## Overview
+Microservice Elixir/Phoenix responsable de la livraison des notifications push de Whispr Messenger : fan-out FCM (Android/Web) et APNS (iOS), inbox persistante, préférences utilisateur, badges, gestion des devices. Communication inter-services en HTTP via Istio.
 
-Microservice de notifications développé par DALM1 équipe Whispr. Ce service assure la gestion, le filtrage et la livraison des notifications push en lien avec plusieurs microservices via Istio Service Mesh, garantissant sécurité, scalabilité et résilience.
+## Table of contents
 
-## Table of Contents
-
-- [Tech Stack](#tech-stack)
+- [Tech stack](#tech-stack)
 - [Architecture](#architecture)
-- [Features](#features)
-- [Installation](#installation)
+- [Installation locale](#installation-locale)
 - [Configuration](#configuration)
-- [Usage](#usage)
-- [API Endpoints](#api-endpoints)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Support](#support)
+- [Démarrage](#démarrage)
+- [API REST](#api-rest)
+- [Tests & qualité](#tests--qualité)
+- [Déploiement](#déploiement)
+- [Documentation complémentaire](#documentation-complémentaire)
+- [Support & contribution](#support--contribution)
 - [License](#license)
 
-## Tech Stack
+## Tech stack
 
-- **Langage** : Elixir
-- **Framework** : Phoenix (+ OTP)
-- **Base de données** : PostgreSQL via Ecto
-- **Cache** : Redis
-- **Service Mesh** : Istio avec mTLS et Envoy
-- **Notifications Push** : FCM (Firebase), APNS (Apple)
-- **API** : REST + gRPC (mTLS via Istio)
-- **Tests** : ExUnit (unitaires, intégration, workers)
+| Composant | Choix |
+|-----------|-------|
+| Runtime | Elixir 1.18 / Erlang OTP 27 |
+| Framework HTTP | Phoenix 1.8 (REST JSON uniquement) |
+| Base de données | PostgreSQL via Ecto 3.13 |
+| Cache & pub/sub | Redis 7 (mode `direct` ou `sentinel`) via Redix |
+| Push providers | FCM HTTP v1 (Pigeon + Goth) · APNS HTTP/2 + JWT ES256 (Pigeon) |
+| Auth inter-services | JWT ES256 vérifié contre le JWKS d'`auth-service` |
+| Observabilité | Logger JSON (`LOG_FORMAT=json`), Sentry optionnel, Telemetry |
+| Tests | ExUnit + ExCoveralls (Docker Compose en CI) |
+| CI / CD | GitHub Actions · GHCR · ArgoCD (GitOps) |
 
 ## Architecture
 
-### Main Services
+### Arbre de supervision OTP
 
-- **DeviceCacheService** : gestion du cache des appareils
-- **NotificationService** : formatage, filtrage, gestion de règles et préférences
-- **DeliveryService** : batching, retry, envoi vers FCM/APNS
-- **EventService** : gestion des événements métiers (message, média, modération)
-- **GrpcService** : communication avec auth-service, user-service, messaging-service
+L'application démarre dans l'ordre :
 
-## Features
+1. `WhisprNotifications.Repo` — pool Ecto Postgres
+2. `Phoenix.PubSub` — bus interne
+3. `Auth.JwksCache` — prefetch des clés publiques d'`auth-service` (fallback gracieux sur clé vide si injoignable)
+4. `WhisprNotificationsWeb.Endpoint` — HTTP Phoenix
+5. Workers domaine : `Devices.CacheManager`, `TokenRefresher`, `CacheSyncWorker`, `CleanupWorker`, `MetricsWorker`
+6. Subscribers Redis pub/sub : `ModerationSubscriber`, `CallsSubscriber`, `MessagingSubscriber`, `ContactsSubscriber`, `InboxSubscriber`
+7. Dispatchers push (démarrés conditionnellement) : `Goth + FcmDispatcher` si FCM configuré, `ApnsDispatcher` si APNS configuré
 
-- Distribution multi-canal des notifications (FCM/APNS)
-- Préférences utilisateur et device (mute, horaires, fréquences)
-- Filtrage intelligent par conversation, contenu, calendrier
-- Historique des notifications envoyées
-- Retry automatique et tolérance aux pannes
-- Synchronisation du cache avec auth-service
-- Observabilité avancée (logs, métriques, traces Istio)
-- API REST : gestion des paramètres, historique
-- API gRPC : envoi/batch, intégration inter-microservices
+Source : `lib/whispr_notifications/application.ex`.
 
-## Installation
+### Contextes métier (`lib/whispr_notifications/`)
+
+- `auth/` — vérification JWT, cache JWKS
+- `devices/` — registre des devices push + cache async
+- `notifications/` — formatage cross-platform, historique
+- `delivery/` — `BatchProcessor`, `FcmClient`, `ApnsClient`, `RetryManager`
+- `preferences/` — quiet hours, mute conversation, filtre mentions-only
+- `badges/` — compteur de notifs non lues par user
+- `inbox/` — persistance Postgres + diffusion WebSocket via PubSub
+- `events/` — handlers des messages Redis (message, call, contact, moderation)
+
+## Installation locale
 
 ### Prérequis
 
-- Elixir 1.15+
-- Erlang 26+
-- PostgreSQL 14+
-- Redis 6+
-- Docker / Kubernetes / Istio (cluster ou local)
+- Elixir `~> 1.18`, Erlang OTP 27
+- PostgreSQL 15+
+- Redis 7+
+- Docker + Docker Compose (recommandé pour la BDD/Redis de dev)
 
-### Étapes
+### Setup
 
 ```bash
-cp .env.example .env
 mix deps.get
 mix ecto.create
 mix ecto.migrate
 ```
 
+Pour la base et Redis en local, utiliser le compose dev :
+
+```bash
+docker compose -f docker/dev/compose.yml up -d
+```
+
 ## Configuration
 
-Variables à définir dans `.env` :
-- `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_NAME`
-- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
-- `FCM_PROJECT_ID`, `FCM_JSON_KEYFILE`, `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`
-- `GRPC_PORT`, `PORT`
-- `AUTH_SERVICE_HOST`, `AUTH_SERVICE_PORT` — coordonnées gRPC du service d'authentification
+Toute la configuration runtime vit dans `config/runtime.exs` (lecture à chaque boot du release). Aucun secret n'est compilé dans l'image.
 
-## Usage
+### Variables d'environnement
 
-### Développement
+| Variable | Obligatoire | Défaut | Description |
+|----------|-------------|--------|-------------|
+| `DATABASE_URL` | prod | — | `ecto://user:pass@host/db` |
+| `DATABASE_POOL_SIZE` | non | `10` | Taille du pool Ecto |
+| `DATABASE_SSL` | non | `false` | TLS Postgres |
+| `SECRET_KEY_BASE` | prod | — | ≥ 64 bytes, `mix phx.gen.secret` |
+| `PORT` | non | `4011` | Port HTTP Phoenix |
+| `PHX_HOST` | non | `localhost` | Host public (URL générée) |
+| `CORS_ALLOWED_ORIGINS` | prod | — | Liste CSV, pas de wildcard accepté en prod |
+| **Redis** | | | |
+| `REDIS_MODE` | non | `direct` | `direct` ou `sentinel` |
+| `REDIS_HOST` / `REDIS_PORT` | mode direct | `localhost` / `6379` | |
+| `REDIS_SENTINELS` / `REDIS_MASTER_NAME` / `REDIS_SENTINEL_PASSWORD` | mode sentinel | — | HA Redis |
+| `REDIS_USERNAME` / `REDIS_PASSWORD` | selon | — | Auth Redis |
+| `REDIS_DB` | non | `0` (`1` en test) | Index DB |
+| `REDIS_SSL` | non | `false` | |
+| **JWT / JWKS** | | | |
+| `AUTH_JWKS_URL` | oui | `http://auth-service/auth/.well-known/jwks.json` | Endpoint JWKS d'`auth-service` |
+| `JWKS_REFRESH_INTERVAL_MS` | non | `3600000` | Refresh périodique du cache |
+| `JWT_ISSUER` | oui | — | Claim `iss` attendu |
+| `JWT_AUDIENCE` | oui | — | Claim `aud` attendu |
+| **FCM (Android/Web)** | | | |
+| `FCM_PROJECT_ID` | si FCM | — | ID projet Firebase |
+| `FCM_JSON_KEYFILE` | si FCM | — | Chemin vers le service account JSON monté |
+| `FCM_JSON` | alt. | — | Service account inline (contenu) |
+| **APNS (iOS)** | | | |
+| `APNS_KEY_PATH` | si APNS | — | Chemin vers le `.p8` |
+| `APNS_KEY_ID` / `APNS_TEAM_ID` | si APNS | — | Identifiants Apple |
+| `APNS_MODE` | non | `dev` | `dev` ou `prod` |
+| `APNS_DEFAULT_TOPIC` | non | — | Bundle ID iOS fallback |
+| **Observabilité** | | | |
+| `LOG_LEVEL` | non | `info` | `debug` \| `info` \| `warning` \| `error` |
+| `LOG_FORMAT` | non | text | `json` pour formatter structuré |
+| `SENTRY_DSN` | non | — | Active la capture d'erreurs si présent |
+| `RELEASE_LEVEL` | non | `production` | Tag d'environnement Sentry |
+
+Les dispatchers push (FCM, APNS) ne sont démarrés que si leurs credentials sont fournis. En dev sans creds, les clients renvoient `{:error, :not_configured}` sans faire crasher la supervision.
+
+## Démarrage
 
 ```bash
-mix phx.server # Démarrage Phoenix
-mix test # Exécuter les tests unitaires et d'intégration
-mix docs # Générer la documentation
-```
+# Développement (rechargement de code)
+mix phx.server
 
-### Production
+# REPL interactif
+iex -S mix
 
-```bash
+# Production (release)
 MIX_ENV=prod mix release
-_build/prod/rel/notification_service/bin/notification_service start
-docker build -t notification-service .
-docker-compose up -d
+_build/prod/rel/whispr_notification/bin/whispr_notification start
 ```
 
-## API Endpoints
+Construction de l'image Docker prod :
 
-### REST
+```bash
+docker build -f docker/prod/Dockerfile -t notification-service .
+```
 
-- `GET /notifications/:user_id` — Historique des notifications
-- `PUT /settings/:user_id` — Mise à jour des préférences
-- `GET /health` — Health check du service
+L'image utilise un user non-root (`whispr:whispr`, uid 1000) et expose un healthcheck HTTP sur `/api/v1/health`.
 
-### gRPC
+## API REST
 
-- `SendNotification`
-- `SendBulkNotifications`
-- `NotifyDeviceEvent`
-- Voir détails & schémas dans `/documentation`
+Base URL locale : `http://localhost:4011`
 
-## Testing
+Toutes les routes existent en double sous deux préfixes :
 
-- Suite ExUnit (unitaires, intégration, workers)
-- Couverture > 90%
+- `/api/...` — quand la gateway strippe le préfixe `notification`
+- `/notification/api/...` — quand elle forwarde le chemin complet
 
-## Deployment
+### Endpoints publics (pas d'auth)
 
-- Docker, Docker Compose & Kubernetes (GKE supporté)
-- Déploiement continu via GitHub Actions & ArgoCD
-- Rolling updates & blue/green deploy via Istio
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/v1/health` | Liveness probe |
+| `GET` | `/api/v1/health/ready` | Readiness probe (vérifie Postgres + Redis) |
 
-## Support
+### Endpoints authentifiés (`Authorization: Bearer <jwt_es256>`)
 
-- Documentation dans `/documentation`
-- Vérifier les logs
-- Support via Teams/Discord (voir `.env`)
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/api/v1/auth-check` | Valide le JWT, retourne le `sub` |
+| `POST` | `/api/v1/notifications` | Crée et dispatch une notification |
+| `GET` | `/api/v1/badge` | Compteur badge du user courant |
+| `GET` / `PUT` | `/api/v1/settings` | Préférences du user courant |
+| `GET` / `PUT` | `/api/settings/:user_id` | Préférences explicites (legacy) |
+| `POST` | `/api/v1/devices` | Enregistre un token push (FCM/APNS) |
+| `DELETE` | `/api/v1/devices/:device_id` | Désenregistre un device |
+| `POST` | `/api/conversations/:conversation_id/mute` | Mute une conversation |
+| `DELETE` | `/api/conversations/:conversation_id/mute` | Unmute |
+| `GET` | `/api/v1/inbox` | Liste les notifications en attente |
+| `POST` | `/api/v1/inbox/mark-read` | Marque comme lues |
+
+Voir [`API_JSON.md`](API_JSON.md) pour les schémas requête/réponse complets et [`ENDPOINTS_DB.md`](ENDPOINTS_DB.md) pour la correspondance routes ↔ tables.
+
+### Évènements Redis consommés
+
+Le service écoute plusieurs canaux Redis pub/sub pour déclencher des push :
+
+- `whispr:messaging:events` — nouveaux messages
+- `whispr:calls:events` — appels entrants/manqués
+- `whispr:contacts:events` — invitations contact
+- `whispr:moderation:events` — décisions modération
+- `whispr:notifications:inbox` — broadcast inbox côté WebSocket
+
+## Tests & qualité
+
+```bash
+# Suite complète + couverture XML/HTML
+mix test
+mix coveralls.html
+
+# Tests isolés
+mix test test/whispr_notifications/auth/jwt_verifier_test.exs
+
+# Format et lint (manuel)
+mix format --check-formatted
+mix credo --strict
+
+# Audit CVE des deps Hex
+mix deps.audit
+```
+
+En CI, les tests tournent en Docker Compose (Postgres + Redis éphémères, credentials générés à la volée). Voir `.github/workflows/tests.yml`.
+
+La couverture est suivie via Codecov (`codecov.yml`). Les CVE Hex sont scannées en bloquant par `mix_audit` (`.github/workflows/elixir-sast.yml`).
+
+## Déploiement
+
+- **Build** : workflow `docker.yml` construit et pousse l'image sur GHCR à chaque merge sur `deploy/preprod` ou `main`.
+- **Release** : workflow `release.yml` tag automatiquement (SemVer dérivé des Conventional Commits) au merge sur `main`.
+- **Déploiement** : ArgoCD synchronise depuis le repo `infrastructure` (GitOps). Le statut de l'app est visible via le badge en tête de README.
+- **Probes k8s** : `/api/v1/health` en liveness, `/api/v1/health/ready` en readiness.
+
+Pipeline détaillé : voir `../DEPLOYMENT_PIPELINE.md`.
+
+## Documentation complémentaire
+
+| Fichier | Contenu |
+|---------|---------|
+| [`API_JSON.md`](API_JSON.md) | Schémas JSON requête/réponse de chaque endpoint |
+| [`ENDPOINTS_DB.md`](ENDPOINTS_DB.md) | Routes ↔ tables Postgres |
+| [`SECURITY.md`](SECURITY.md) | Modèle de menace, JWT, secrets |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Conventions de contribution |
+| [`DOCKER.md`](DOCKER.md) | Détails images dev/test/prod |
+| `documentation/` | Schémas d'architecture détaillés |
+
+## Support & contribution
+
+- Conventions de commit : [Conventional Commits](https://www.conventionalcommits.org/) — le type (`feat`, `fix`, `chore`, …) pilote le bump SemVer au merge sur `main`.
+- Branches : `WHISPR-<id>-short-description` (worktrees dans `.worktrees/`).
+- Avant PR : `mix format && mix credo --strict && mix test`.
+
+Bug, idée ou question : ouvrir une issue GitHub ou contacter l'équipe sur le canal Whispr.
 
 ## License
 
-Projet Whispr : usage privé, tous droits réservés.
+Projet Whispr — usage privé, tous droits réservés.
 
 ---
 
-**Développé par l'équipe Whispr**
-
-Version : 1.0.0  
-Dernière mise à jour – 18/04/2026
+Développé par l'équipe Whispr.
