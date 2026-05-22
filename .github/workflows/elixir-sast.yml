@@ -51,10 +51,17 @@ jobs:
       # mix_audit ne produit pas de SARIF nativement. On capture la sortie
       # dans un fichier exposé en artefact ; le exit code non-nul bloque
       # la CI en cas de CVE détectée.
+      #
+      # --ignore-advisory-ids GHSA-g2wm-735q-3f56:
+      #   cowlib cookie header injection (severity LOW). Aucune version
+      #   patchée publiée par ninenines/cowlib (cf. advisory : "First
+      #   patched versions" vide, vulnerable range >= 2.9.0, <= 2.16.1).
+      #   Aucune autre version de cowlib n'est compatible avec phoenix +
+      #   cowboy actuels. À retirer dès qu'une release fixe sort en amont.
       - name: Run mix_audit
         run: |
           set -o pipefail
-          mix deps.audit 2>&1 | tee mix-audit-results.txt
+          mix deps.audit --ignore-advisory-ids GHSA-g2wm-735q-3f56 2>&1 | tee mix-audit-results.txt
 
       - name: Upload mix_audit results
         if: always()
