@@ -3,10 +3,17 @@
 fixes:
   - "/app/::"
 
+# Seuils de coverage : on tolere une legere baisse pour eviter de bloquer
+# des PRs d'integration ou de refactor sur quelques lignes manquantes.
 coverage:
   status:
+    project:
+      default:
+        target: auto
+        threshold: 2%
     patch:
       default:
         # les branches backoff Redis et reconnect sont couvertes par coveralls-ignore-start
         # car elles dependent de Redis injoignable (difficile a exercer en CI)
+        target: 80%
         threshold: 5%

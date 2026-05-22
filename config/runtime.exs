@@ -92,7 +92,10 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0},
       port: String.to_integer(System.get_env("PORT", "4011"))
     ],
-    secret_key_base: System.fetch_env!("SECRET_KEY_BASE"),
+    secret_key_base:
+      WhisprNotifications.RuntimeSecret.validate_secret_key_base!(
+        System.fetch_env!("SECRET_KEY_BASE")
+      ),
     url: [
       host: System.get_env("PHX_HOST", "localhost"),
       port: 443,
