@@ -6,7 +6,7 @@ defmodule WhisprNotificationsWeb do
 
   def controller do
     quote do
-      use Phoenix.Controller, namespace: WhisprNotificationsWeb
+      use Phoenix.Controller, formats: [:json]
 
       import Plug.Conn
       alias WhisprNotificationsWeb.Router.Helpers, as: Routes
