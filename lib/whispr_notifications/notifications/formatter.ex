@@ -6,7 +6,7 @@ defmodule WhisprNotifications.Notifications.Formatter do
 
   alias WhisprNotifications.Notifications.Notification
 
-  @type platform :: :ios | :android | :web
+  @type platform :: :ios | :android | :web | :web_push
 
   @spec to_platform_payload(Notification.t(), platform()) :: map()
   def to_platform_payload(notif, platform), do: to_platform_payload(notif, platform, nil)
@@ -61,6 +61,18 @@ defmodule WhisprNotifications.Notifications.Formatter do
       "title" => n.title,
       "body" => n.body,
       "data" => Map.put(n.context, "notification_id", n.id)
+    }
+  end
+
+  # web_push utilise le même format JSON que :web (titre, corps, data).
+  # Le WebPushClient s'occupe du chiffrement VAPID et de l'envoi HTTP.
+  def to_platform_payload(%Notification{} = n, :web_push, _badge) do
+    %{
+      notification: %{
+        title: n.title,
+        body: n.body
+      },
+      data: Map.put(n.context, "notification_id", n.id)
     }
   end
 
