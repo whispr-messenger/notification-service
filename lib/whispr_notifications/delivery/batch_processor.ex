@@ -6,7 +6,7 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
   """
 
   alias WhisprNotifications.{Badges, Devices}
-  alias WhisprNotifications.Delivery.{ApnsClient, FcmClient, RetryManager}
+  alias WhisprNotifications.Delivery.{ApnsClient, FcmClient, RetryManager, WebPushClient}
   alias WhisprNotifications.Devices.DeviceCache
   alias WhisprNotifications.Notifications.{Formatter, Notification}
 
@@ -64,6 +64,23 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
     end
   end
 
+  defp send_to_device(:web_push, device, payload, attempt) do
+    case web_push_client().send(device, payload) do
+      :ok ->
+        :ok
+
+      {:error, :endpoint_expired} ->
+        soft_delete_invalid(device, "ENDPOINT_EXPIRED")
+        :ok
+
+      {:error, :not_configured} ->
+        :ok
+
+      {:error, _} ->
+        maybe_retry(attempt)
+    end
+  end
+
   defp send_to_device(:web, _device, _payload, _attempt), do: :ok
 
   # Marque le token FCM/APNS invalide en base — le prochain fan-out ne
@@ -100,6 +117,10 @@ defmodule WhisprNotifications.Delivery.BatchProcessor do
 
   defp fcm_client do
     Application.get_env(:whispr_notification, :fcm_client_mod, FcmClient)
+  end
+
+  defp web_push_client do
+    Application.get_env(:whispr_notification, :web_push_client_mod, WebPushClient)
   end
 
   defp current_badge(nil), do: nil
