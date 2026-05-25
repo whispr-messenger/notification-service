@@ -19,7 +19,7 @@ defmodule WhisprNotifications.Devices do
   alias WhisprNotifications.Devices.Device
   alias WhisprNotifications.Repo
 
-  @type platform :: :android | :ios | :web
+  @type platform :: :android | :ios | :web | :web_push
 
   @spec list_active_for_user(binary()) :: [Device.t()]
   def list_active_for_user(user_id) when is_binary(user_id) do
@@ -32,7 +32,8 @@ defmodule WhisprNotifications.Devices do
     changeset = Device.changeset(%Device{}, attrs)
 
     case Repo.insert(changeset,
-           on_conflict: {:replace, [:fcm_token, :platform, :app_version, :updated_at]},
+           on_conflict:
+             {:replace, [:fcm_token, :platform, :app_version, :wp_p256dh, :wp_auth, :updated_at]},
            conflict_target:
              {:unsafe_fragment, ~s|("user_id", "device_id") WHERE deleted_at IS NULL|},
            returning: true
