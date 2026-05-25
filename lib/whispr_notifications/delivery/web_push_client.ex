@@ -74,24 +74,26 @@ defmodule WhisprNotifications.Delivery.WebPushClient do
     })
   end
 
-  # coveralls-ignore-start — appels réseau réels via WebPushElixir, non exercés en CI sans serveur VAPID
   defp do_push(subscription_json, message, endpoint) do
     case WebPushElixir.send_notification(subscription_json, message) do
+      # coveralls-ignore-next-line - appel réseau réel, non exercé en CI sans serveur VAPID
       {:ok, _response} ->
         :ok
 
+      # coveralls-ignore-next-line
       {:error, :expired} ->
         Logger.info("[WebPushClient] endpoint expiré: #{endpoint}")
         {:error, :endpoint_expired}
 
+      # coveralls-ignore-next-line
       {:error, {:http_error, status, body}} ->
         Logger.warning("[WebPushClient] HTTP #{status} pour #{endpoint}: #{inspect(body)}")
         {:error, :transient}
     end
   rescue
+    # coveralls-ignore-next-line
     e ->
       Logger.warning("[WebPushClient] push a levé une exception: #{inspect(e)}")
       {:error, :transient}
   end
-  # coveralls-ignore-stop
 end

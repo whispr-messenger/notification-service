@@ -13,7 +13,6 @@ defmodule WhisprNotifications.Test.SpyWebPushClient do
 
     case Application.get_env(:whispr_notification, :web_push_spy_response) do
       nil -> :ok
-      # coveralls-ignore-next-line - branche défensive pour fonctions de callback, jamais utilisée dans les tests
       fun when is_function(fun, 0) -> fun.()
       value -> value
     end
