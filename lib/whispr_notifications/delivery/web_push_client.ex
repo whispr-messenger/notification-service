@@ -74,6 +74,7 @@ defmodule WhisprNotifications.Delivery.WebPushClient do
     })
   end
 
+  # coveralls-ignore-start — appels réseau réels via WebPushElixir, non exercés en CI sans serveur VAPID
   defp do_push(subscription_json, message, endpoint) do
     case WebPushElixir.send_notification(subscription_json, message) do
       {:ok, _response} ->
@@ -92,4 +93,5 @@ defmodule WhisprNotifications.Delivery.WebPushClient do
       Logger.warning("[WebPushClient] push a levé une exception: #{inspect(e)}")
       {:error, :transient}
   end
+  # coveralls-ignore-stop
 end
