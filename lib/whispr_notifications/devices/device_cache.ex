@@ -15,7 +15,7 @@ defmodule WhisprNotifications.Devices.DeviceCache do
     fetched_at: nil
   ]
 
-  @type platform :: :ios | :android | :web
+  @type platform :: :ios | :android | :web | :web_push
 
   @type device :: %{
           required(:token) => String.t(),
@@ -23,7 +23,10 @@ defmodule WhisprNotifications.Devices.DeviceCache do
           # optionnel: app bundle, env, etc.
           optional(:app) => String.t() | nil,
           optional(:device_id) => String.t() | nil,
-          optional(:internal_id) => String.t() | nil
+          optional(:internal_id) => String.t() | nil,
+          # clés VAPID — présentes uniquement pour platform = :web_push
+          optional(:wp_p256dh) => String.t() | nil,
+          optional(:wp_auth) => String.t() | nil
         }
 
   @type t :: %__MODULE__{

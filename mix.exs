@@ -62,6 +62,7 @@ defmodule WhisprNotification.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:sentry, "~> 10.0"},
       {:hackney, "~> 1.18"},
+      {:web_push_elixir, "~> 0.8"},
       {:excoveralls, "~> 0.18", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
