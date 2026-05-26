@@ -91,19 +91,10 @@ config :whispr_notification, :services,
 # Web Push VAPID
 # ======================================================================
 #
-# Clés générées avec `web_push_elixir.generate_vapid_keys` ou openssl.
-# VAPID_SUBJECT doit être une URL mailto: ou https:.
+# Les clés VAPID viennent des secrets Kubernetes et ne sont pas disponibles
+# au build Docker. La config :web_push_elixir est dans runtime.exs pour que
+# System.get_env soit évalué au démarrage du pod, pas lors du mix release.
 # En dev/CI les clés sont absentes — le WebPushClient retourne :not_configured.
-
-# web_push_elixir attend 3 clés plates (pas un nested map) :
-#   vapid_subject   → URL mailto: ou https: identifiant le serveur
-#   vapid_public_key  → clé ECDH P-256 publique en base64url (sans padding)
-#   vapid_private_key → clé ECDH P-256 privée en base64url (sans padding)
-# Générer avec : mix web_push_elixir.generate_vapid_keys
-config :web_push_elixir,
-  vapid_subject: System.get_env("VAPID_SUBJECT", ""),
-  vapid_public_key: System.get_env("VAPID_PUBLIC_KEY", ""),
-  vapid_private_key: System.get_env("VAPID_PRIVATE_KEY", "")
 
 # ======================================================================
 # Logger
