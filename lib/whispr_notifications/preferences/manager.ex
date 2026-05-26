@@ -109,11 +109,29 @@ defmodule WhisprNotifications.Preferences.Manager do
       end
 
     user_ok = is_nil(user_settings) or not UserSettings.quiet_now?(user_settings, now)
+    push_enabled_ok = push_enabled_for?(notif, user_settings)
     conv_ok = is_nil(conv_settings) or not ConversationSettings.muted_now?(conv_settings, now)
     mention_ok = mention_allowed?(notif, user_settings, conv_settings)
 
-    user_ok and conv_ok and mention_ok
+    user_ok and push_enabled_ok and conv_ok and mention_ok
   end
+
+  # Vérifie le toggle push_enabled correspondant au type de la notification.
+  # Un toggle à false bloque l'envoi même si quiet_hours ne s'applique pas.
+  defp push_enabled_for?(_notif, nil), do: true
+
+  defp push_enabled_for?(%Notification{type: :message}, %UserSettings{
+         message_push_enabled: false
+       }),
+       do: false
+
+  defp push_enabled_for?(%Notification{type: type}, %UserSettings{
+         system_push_enabled: false
+       })
+       when type in [:system, :moderation, :call, :contact, :group],
+       do: false
+
+  defp push_enabled_for?(_notif, _us), do: true
 
   # `mentions_only` blocks message-type notifications that are not @-mentions
   # for the recipient. The flag is read with conversation-level overriding
