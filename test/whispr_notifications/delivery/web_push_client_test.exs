@@ -77,11 +77,11 @@ defmodule WhisprNotifications.Delivery.WebPushClientTest do
       :ok
     end
 
-    test "retourne {:error, :endpoint_expired} quand WebPushElixir renvoie {:error, :expired}" do
-      # on teste le mappage de retour — on ne peut pas mocker WebPushElixir directement
-      # sans un mock process, donc on valide que le code compile et que la signature est correcte
-      # via le comportement déclaré
-      assert function_exported?(WebPushClient, :send, 2)
+    test "send/2 retourne {:error, :not_configured} pour endpoint vide même avec VAPID configuré" do
+      # WebPushElixir ne peut pas être mocké sans process dédié ; on vérifie le guard
+      # sur le token vide qui court-circuite avant tout appel réseau
+      device = Map.put(@valid_device, :token, "")
+      assert {:error, :not_configured} = WebPushClient.send(device, @valid_payload)
     end
 
     test "WebPushClient implémente son propre behaviour" do
@@ -93,14 +93,16 @@ defmodule WhisprNotifications.Delivery.WebPushClientTest do
   end
 
   describe "callback behaviour" do
-    test "le module exporte send/2" do
-      assert function_exported?(WebPushClient, :send, 2)
-    end
-
     test "le module déclare le @callback send/2" do
       # vérifie que le module est un behaviour (callbacks définis)
       callbacks = WebPushClient.behaviour_info(:callbacks)
       assert {:send, 2} in callbacks
+    end
+
+    test "send/2 est appelable — retourne :error tuple avec VAPID absent" do
+      set_vapid_unconfigured()
+      result = WebPushClient.send(@valid_device, @valid_payload)
+      assert {:error, _} = result
     end
   end
 end
