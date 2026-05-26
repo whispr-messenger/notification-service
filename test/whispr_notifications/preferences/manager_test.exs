@@ -250,5 +250,51 @@ defmodule WhisprNotifications.Preferences.ManagerTest do
 
       assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
     end
+
+    test "returns false for :message notif when message_push_enabled is false" do
+      uid = unique_id("pref-mgr-push-off")
+      {:ok, _} = Manager.update_user_settings(uid, %{"message_push_enabled" => false})
+
+      notif = NotificationFixtures.build_notification(%{user_id: uid, type: :message})
+
+      refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "returns true for :message notif when message_push_enabled is true (default)" do
+      uid = unique_id("pref-mgr-push-on")
+
+      notif = NotificationFixtures.build_notification(%{user_id: uid, type: :message})
+
+      assert Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "returns false for :system notif when system_push_enabled is false" do
+      uid = unique_id("pref-mgr-sys-off")
+      {:ok, _} = Manager.update_user_settings(uid, %{"system_push_enabled" => false})
+
+      notif = NotificationFixtures.build_notification(%{user_id: uid, type: :system})
+
+      refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
+
+    test "message_push_enabled=true still sends when mentions_only requires a mention" do
+      # push_enabled_ok et mention_ok sont deux conditions independantes
+      uid = unique_id("pref-mgr-push-mention")
+
+      {:ok, _} =
+        Manager.update_user_settings(uid, %{
+          "message_push_enabled" => true,
+          "mentions_only" => true
+        })
+
+      notif =
+        NotificationFixtures.build_notification(%{
+          user_id: uid,
+          type: :message,
+          metadata: %{"mentioned" => false}
+        })
+
+      refute Manager.allowed_for_notification?(notif, ~U[2026-01-01 10:00:00Z])
+    end
   end
 end
