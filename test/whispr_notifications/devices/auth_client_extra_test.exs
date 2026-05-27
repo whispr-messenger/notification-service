@@ -21,7 +21,7 @@ defmodule WhisprNotifications.Devices.AuthClientExtraTest do
   end
 
   test "Device.platforms/0 returns the canonical list" do
-    assert Device.platforms() == ~w(android ios web)
+    assert Device.platforms() == ~w(android ios web web_push)
   end
 
   test "platform_atom defaults to :android for unknown stored platforms" do

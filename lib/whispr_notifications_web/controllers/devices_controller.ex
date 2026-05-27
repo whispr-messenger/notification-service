@@ -17,9 +17,16 @@ defmodule WhisprNotificationsWeb.DevicesController do
   Body (JSON):
   - `device_id` (string, required) — stable identifier chosen by the client
     (IDFV on iOS, Android ID / Instance ID on Android).
-  - `fcm_token` (string, required) — current Firebase Cloud Messaging token.
-  - `platform` (string, required) — `"android"` or `"ios"`.
+  - `fcm_token` (string, required) — current Firebase Cloud Messaging token,
+    OR endpoint URL Web Push pour `platform: "web_push"`.
+  - `platform` (string, required) — `"android"`, `"ios"` ou `"web_push"`.
   - `app_version` (string, optional) — mobile app version string.
+  - `keys` (object, required pour `web_push`) — clés VAPID du navigateur :
+    - `p256dh` (string) — clé publique P-256 DH en base64url
+    - `auth` (string) — secret d'authentification en base64url
+
+  Pour `web_push`, le champ `endpoint` peut aussi être fourni à la place
+  de `fcm_token` — il sera stocké dans `fcm_token`.
 
   Responses:
   - `201 Created` on first registration of this `device_id` for the user.
@@ -61,7 +68,7 @@ defmodule WhisprNotificationsWeb.DevicesController do
   defp do_register(conn, user_id, params) do
     device_id = params_get(params, "device_id")
     existed_before? = device_exists?(user_id, device_id)
-    attrs = Map.put(ensure_string_keys(params), "user_id", user_id)
+    attrs = build_attrs(params, user_id)
 
     case Devices.upsert(attrs) do
       {:ok, %Device{} = device} ->
@@ -71,6 +78,34 @@ defmodule WhisprNotificationsWeb.DevicesController do
       {:error, %Changeset{} = changeset} ->
         conn |> put_status(:bad_request) |> json(%{errors: traverse_errors(changeset)})
     end
+  end
+
+  # Pour web_push, l'endpoint reçu dans "endpoint" ou "fcm_token" est stocké
+  # dans fcm_token, et les clés VAPID sont extraites de "keys".
+  defp build_attrs(params, user_id) do
+    base = ensure_string_keys(params)
+
+    base =
+      case Map.get(base, "endpoint") do
+        endpoint when is_binary(endpoint) and endpoint != "" ->
+          Map.put(base, "fcm_token", endpoint)
+
+        _ ->
+          base
+      end
+
+    base =
+      case Map.get(base, "keys") do
+        %{"p256dh" => p256dh, "auth" => auth} ->
+          base
+          |> Map.put("wp_p256dh", p256dh)
+          |> Map.put("wp_auth", auth)
+
+        _ ->
+          base
+      end
+
+    Map.put(base, "user_id", user_id)
   end
 
   # Any prior row with this (user_id, device_id), including soft-deleted ones,

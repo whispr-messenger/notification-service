@@ -225,3 +225,13 @@ if apns_enabled? do
     team_id: apns_team_id,
     mode: apns_mode
 end
+
+# Web Push VAPID — lu au runtime pour que les secrets Kubernetes soient
+# disponibles (config.exs est évalué au build Docker, pas au démarrage).
+# web_push_elixir attend des clés P-256 en base64url sans padding.
+# WebPushClient.send/2 retourne {:error, :not_configured} si les deux
+# clés sont absentes (dev/CI sans secret).
+config :web_push_elixir,
+  vapid_subject: System.get_env("VAPID_SUBJECT", ""),
+  vapid_public_key: System.get_env("VAPID_PUBLIC_KEY", ""),
+  vapid_private_key: System.get_env("VAPID_PRIVATE_KEY", "")

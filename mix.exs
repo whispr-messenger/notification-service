@@ -11,8 +11,13 @@ defmodule WhisprNotification.MixProject do
       aliases: aliases(),
       deps: deps(),
       elixirc_options: [warnings_as_errors: false],
-      test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
+      test_coverage: [tool: ExCoveralls]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
@@ -47,7 +52,6 @@ defmodule WhisprNotification.MixProject do
       {:grpcbox, "~> 0.17"},
       {:protobuf, "~> 0.12"},
       {:jason, "~> 1.4"},
-      {:poison, "~> 6.0"},
       {:req, "~> 0.5"},
       {:joken, "~> 2.6"},
       {:elixir_uuid, "~> 1.2"},
@@ -58,6 +62,7 @@ defmodule WhisprNotification.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:sentry, "~> 10.0"},
       {:hackney, "~> 1.18"},
+      {:web_push_elixir, "~> 0.8"},
       {:excoveralls, "~> 0.18", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},

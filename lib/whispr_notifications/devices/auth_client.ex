@@ -49,17 +49,38 @@ defmodule WhisprNotifications.Devices.AuthClient do
   def fetch_devices(_), do: {:error, :invalid_user_id}
 
   defp to_cache_device(device) do
-    %{
+    base = %{
       token: device.fcm_token,
       platform: platform_atom(device.platform),
-      app: device.app_version,
+      app: app_topic(device),
       device_id: device.device_id,
       internal_id: device.id
     }
+
+    # pour web_push, on transporte les clés VAPID dans le cache
+    case device.platform do
+      "web_push" ->
+        Map.merge(base, %{
+          wp_p256dh: device.wp_p256dh,
+          wp_auth: device.wp_auth
+        })
+
+      _ ->
+        base
+    end
   end
+
+  defp app_topic(%{platform: "ios"}) do
+    :whispr_notification
+    |> Application.get_env(:apns, [])
+    |> Keyword.get(:default_topic)
+  end
+
+  defp app_topic(device), do: device.app_version
 
   defp platform_atom("android"), do: :android
   defp platform_atom("ios"), do: :ios
   defp platform_atom("web"), do: :web
+  defp platform_atom("web_push"), do: :web_push
   defp platform_atom(_), do: :android
 end

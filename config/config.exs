@@ -88,6 +88,15 @@ config :whispr_notification, :services,
 # / APNS_MODE.
 
 # ======================================================================
+# Web Push VAPID
+# ======================================================================
+#
+# Les clés VAPID viennent des secrets Kubernetes et ne sont pas disponibles
+# au build Docker. La config :web_push_elixir est dans runtime.exs pour que
+# System.get_env soit évalué au démarrage du pod, pas lors du mix release.
+# En dev/CI les clés sont absentes — le WebPushClient retourne :not_configured.
+
+# ======================================================================
 # Logger
 # ======================================================================
 
