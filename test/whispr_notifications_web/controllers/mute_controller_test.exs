@@ -154,6 +154,115 @@ defmodule WhisprNotificationsWeb.MuteControllerTest do
     end
   end
 
+  describe "index/2 — list muted conversations" do
+    test "returns empty list when user has no muted conversations" do
+      user_id = unique_id("u")
+
+      conn =
+        :get
+        |> conn("/api/conversations/mutes")
+        |> assign(:jwt_sub, user_id)
+        |> MuteController.index(%{})
+
+      assert conn.status == 200
+      assert Jason.decode!(conn.resp_body) == %{"mutes" => []}
+    end
+
+    test "returns muted conversations after POST mute" do
+      user_id = unique_id("u")
+      conv_id = unique_id("conv")
+
+      :post
+      |> build_conn(conv_id, user_id)
+      |> MuteController.mute(%{"conversation_id" => conv_id, "user_id" => user_id})
+
+      conn =
+        :get
+        |> conn("/api/conversations/mutes")
+        |> assign(:jwt_sub, user_id)
+        |> MuteController.index(%{})
+
+      assert conn.status == 200
+      assert %{"mutes" => [entry]} = Jason.decode!(conn.resp_body)
+      assert entry["conversation_id"] == conv_id
+      assert entry["muted"] == true
+      assert entry["mute_until"] == nil
+    end
+
+    test "filters out expired mute_until entries" do
+      user_id = unique_id("u")
+      past_conv = unique_id("conv-past")
+      future_conv = unique_id("conv-future")
+
+      past_iso =
+        DateTime.utc_now()
+        |> DateTime.add(-3600, :second)
+        |> DateTime.to_iso8601()
+
+      future_iso =
+        DateTime.utc_now()
+        |> DateTime.add(3600, :second)
+        |> DateTime.to_iso8601()
+
+      :post
+      |> build_conn(past_conv, user_id)
+      |> MuteController.mute(%{
+        "conversation_id" => past_conv,
+        "user_id" => user_id,
+        "mute_until" => past_iso
+      })
+
+      :post
+      |> build_conn(future_conv, user_id)
+      |> MuteController.mute(%{
+        "conversation_id" => future_conv,
+        "user_id" => user_id,
+        "mute_until" => future_iso
+      })
+
+      conn =
+        :get
+        |> conn("/api/conversations/mutes")
+        |> assign(:jwt_sub, user_id)
+        |> MuteController.index(%{})
+
+      assert conn.status == 200
+      assert %{"mutes" => mutes} = Jason.decode!(conn.resp_body)
+      conv_ids = Enum.map(mutes, & &1["conversation_id"])
+      assert future_conv in conv_ids
+      refute past_conv in conv_ids
+    end
+
+    test "returns 403 when jwt_sub is missing" do
+      conn =
+        :get
+        |> conn("/api/conversations/mutes")
+        |> MuteController.index(%{})
+
+      assert conn.status == 403
+      assert Jason.decode!(conn.resp_body) == %{"error" => "forbidden"}
+    end
+
+    test "does not leak mutes from other users" do
+      user_a = unique_id("u-a")
+      user_b = unique_id("u-b")
+      conv_a = unique_id("conv-a")
+
+      :post
+      |> build_conn(conv_a, user_a)
+      |> MuteController.mute(%{"conversation_id" => conv_a, "user_id" => user_a})
+
+      conn =
+        :get
+        |> conn("/api/conversations/mutes")
+        |> assign(:jwt_sub, user_b)
+        |> MuteController.index(%{})
+
+      assert conn.status == 200
+      assert Jason.decode!(conn.resp_body) == %{"mutes" => []}
+    end
+  end
+
   describe "unmute/2 — authorization" do
     test "returns 204 when body user_id matches jwt_sub" do
       conv_id = unique_id("conv")
