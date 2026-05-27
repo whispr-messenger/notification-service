@@ -24,6 +24,7 @@ defmodule WhisprNotificationsWeb.Router do
 
     resources("/settings", SettingsController, only: [:show, :update])
 
+    get("/conversations/mutes", MuteController, :index)
     post("/conversations/:conversation_id/mute", MuteController, :mute)
     delete("/conversations/:conversation_id/mute", MuteController, :unmute)
 
@@ -54,6 +55,7 @@ defmodule WhisprNotificationsWeb.Router do
 
     resources("/settings", SettingsController, only: [:show, :update])
 
+    get("/conversations/mutes", MuteController, :index)
     post("/conversations/:conversation_id/mute", MuteController, :mute)
     delete("/conversations/:conversation_id/mute", MuteController, :unmute)
 

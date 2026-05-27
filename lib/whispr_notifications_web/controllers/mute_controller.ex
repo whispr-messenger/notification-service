@@ -3,6 +3,31 @@ defmodule WhisprNotificationsWeb.MuteController do
 
   alias WhisprNotifications.Preferences.Manager
 
+  # GET /api/conversations/mutes
+  # Retourne la liste des conversations mutées par l'utilisateur courant (jwt_sub).
+  # Permet au frontend de synchroniser l'etat is_muted au boot, vu que messaging-service
+  # n'est pas la source de verite pour le mute (cf bug desync front<->back).
+  def index(conn, _params) do
+    case conn.assigns[:jwt_sub] do
+      sub when is_binary(sub) ->
+        mutes =
+          sub
+          |> Manager.list_muted_conversations()
+          |> Enum.map(fn s ->
+            %{
+              conversation_id: s.conversation_id,
+              muted: s.muted,
+              mute_until: s.mute_until
+            }
+          end)
+
+        json(conn, %{mutes: mutes})
+
+      _ ->
+        forbidden(conn)
+    end
+  end
+
   # POST /api/conversations/:conversation_id/mute
   # user_id: optionnel dans le body. S'il est fourni, il doit être égal au
   # `sub` du JWT, sinon 403. S'il est absent, le `sub` du JWT est utilisé.

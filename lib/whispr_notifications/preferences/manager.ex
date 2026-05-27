@@ -4,6 +4,8 @@ defmodule WhisprNotifications.Preferences.Manager do
   Persiste via Ecto sur PostgreSQL.
   """
 
+  import Ecto.Query, warn: false
+
   alias WhisprNotifications.Notifications.Notification
   alias WhisprNotifications.Preferences.{ConversationSettings, UserSettings}
   alias WhisprNotifications.Repo
@@ -86,6 +88,20 @@ defmodule WhisprNotifications.Preferences.Manager do
     existing
     |> ConversationSettings.changeset(attrs)
     |> Repo.insert_or_update()
+  end
+
+  @doc """
+  Liste les conversations actuellement mutées pour un utilisateur.
+  Filtre les mutes expirés (mute_until passé).
+  """
+  @spec list_muted_conversations(String.t(), DateTime.t()) :: [ConversationSettings.t()]
+  def list_muted_conversations(user_id, now \\ DateTime.utc_now()) when is_binary(user_id) do
+    from(s in ConversationSettings,
+      where:
+        s.user_id == ^user_id and s.muted == true and
+          (is_nil(s.mute_until) or s.mute_until > ^now)
+    )
+    |> Repo.all()
   end
 
   @spec allowed_for_notification?(Notification.t(), DateTime.t()) :: boolean()

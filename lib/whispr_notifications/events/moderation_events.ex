@@ -41,37 +41,43 @@ defmodule WhisprNotifications.Events.ModerationEvents do
   @doc "Notify a user when a sanction is applied to them."
   @spec handle_sanction_applied(map()) :: {:ok, Notification.t()} | {:error, term()}
   def handle_sanction_applied(payload) do
-    title =
-      case payload["sanction_type"] do
-        "mute" -> "You have been muted"
-        "kick" -> "You have been removed from a conversation"
-        "warning" -> "You have received a warning"
-        "temp_ban" -> "Your account has been temporarily suspended"
-        "perm_ban" -> "Your account has been suspended"
-        _ -> "Moderation action taken"
-      end
-
-    body = "Reason: #{payload["reason"] || "Violation of community guidelines"}"
-
-    body =
-      if payload["expires_at"],
-        do: body <> ". Expires: #{payload["expires_at"]}",
-        else: body
+    # user-service publie en camelCase (userId, sanctionType...) tandis que
+    # messaging-service publie en snake_case (user_id, sanction_type...).
+    # On accepte les deux formats pour ne pas perdre la notif cote user-service.
+    user_id = payload["user_id"] || payload["userId"]
+    sanction_type = payload["sanction_type"] || payload["type"]
+    reason = payload["reason"]
+    expires_at = payload["expires_at"] || payload["expiresAt"]
+    sanction_id = payload["sanction_id"] || payload["sanctionId"]
 
     Notifications.create(%{
-      user_id: payload["user_id"],
+      user_id: user_id,
       type: :system,
-      title: title,
-      body: body,
+      title: sanction_title(sanction_type),
+      body: sanction_body(reason, expires_at),
       context: %{
         "event" => "sanction_applied",
-        "sanction_type" => payload["sanction_type"],
-        "reason" => payload["reason"],
-        "expires_at" => payload["expires_at"]
+        "sanction_type" => sanction_type,
+        "sanction_id" => sanction_id,
+        "reason" => reason,
+        "expires_at" => expires_at
       }
     })
-    |> log_result("Sanction notification", user_id: payload["user_id"])
+    |> log_result("Sanction notification", user_id: user_id)
   end
+
+  defp sanction_title("mute"), do: "You have been muted"
+  defp sanction_title("kick"), do: "You have been removed from a conversation"
+  defp sanction_title("warning"), do: "You have received a warning"
+  defp sanction_title("temp_ban"), do: "Your account has been temporarily suspended"
+  defp sanction_title("perm_ban"), do: "Your account has been suspended"
+  defp sanction_title(_), do: "Moderation action taken"
+
+  defp sanction_body(reason, nil),
+    do: "Reason: #{reason || "Violation of community guidelines"}"
+
+  defp sanction_body(reason, expires_at),
+    do: "Reason: #{reason || "Violation of community guidelines"}. Expires: #{expires_at}"
 
   @doc "Notify a user when a sanction is lifted."
   @spec handle_sanction_lifted(map()) :: {:ok, Notification.t()} | {:error, term()}
