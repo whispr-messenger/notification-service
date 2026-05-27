@@ -63,6 +63,26 @@ defmodule WhisprNotifications.Events.ModerationEventsTest do
       assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
       assert notif.title == "Moderation action taken"
     end
+
+    # user-service publie en camelCase (userId/type/expiresAt/sanctionId).
+    # Garantit qu'on lit le bon champ et qu'on ne perd pas la notif.
+    test "accepts camelCase payload from user-service" do
+      payload = %{
+        "userId" => "user-camel",
+        "type" => "warning",
+        "reason" => "Spamming",
+        "expiresAt" => "2026-06-01T12:00:00Z",
+        "sanctionId" => "sanction-cc-1"
+      }
+
+      assert {:ok, notif} = ModerationEvents.handle_sanction_applied(payload)
+      assert notif.user_id == "user-camel"
+      assert notif.title == "You have received a warning"
+      assert notif.body =~ "Spamming"
+      assert notif.body =~ "Expires:"
+      assert notif.context["sanction_type"] == "warning"
+      assert notif.context["sanction_id"] == "sanction-cc-1"
+    end
   end
 
   describe "handle_sanction_lifted/1" do
